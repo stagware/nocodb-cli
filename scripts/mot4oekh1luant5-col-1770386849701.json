@@ -1,6 +1,0 @@
-{
-  "title": "Computed",
-  "column_name": "Computed",
-  "uidt": "Formula",
-  "formula": "{Score}*2"
-}
