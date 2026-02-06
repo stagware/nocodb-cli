@@ -16,5 +16,7 @@ describe("parseHeader", () => {
   it("rejects invalid header values", () => {
     expect(() => parseHeader("badheader")).toThrow("Invalid header");
     expect(() => parseHeader("x:")).toThrow("Invalid header");
+    expect(() => parseHeader(":y")).toThrow("Invalid header");
+    expect(() => parseHeader(" : ")).toThrow("Invalid header");
   });
 });

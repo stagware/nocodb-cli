@@ -45,4 +45,14 @@ describe("DataApi", () => {
       { body }
     );
   });
+
+  describe("Error handling", () => {
+    it("handles request failure", async () => {
+      const client = new NocoClient({ baseUrl: "http://test" });
+      vi.spyOn(client, "request").mockRejectedValue(new Error("Network Error"));
+      const api = new DataApi(client);
+
+      await expect(api.listLinks("t1", "f1", "r1")).rejects.toThrow("Network Error");
+    });
+  });
 });

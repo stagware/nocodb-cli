@@ -1,0 +1,8 @@
+{
+  "title": "RollupCount",
+  "column_name": "RollupCount",
+  "uidt": "Rollup",
+  "fk_relation_column_id": "cyg3vqlnmxqggbx",
+  "fk_rollup_column_id": "cko7dpoi81a08t3",
+  "rollup_function": "count"
+}

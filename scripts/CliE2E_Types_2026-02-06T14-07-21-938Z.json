@@ -1,0 +1,31 @@
+{
+  "table_name": "CliE2E_Types_2026-02-06T14-07-21-938Z",
+  "title": "CliE2E_Types_2026-02-06T14-07-21-938Z",
+  "columns": [
+    {
+      "column_name": "Title",
+      "title": "Title",
+      "uidt": "SingleLineText"
+    },
+    {
+      "column_name": "Notes",
+      "title": "Notes",
+      "uidt": "LongText"
+    },
+    {
+      "column_name": "Score",
+      "title": "Score",
+      "uidt": "Number"
+    },
+    {
+      "column_name": "Done",
+      "title": "Done",
+      "uidt": "Checkbox"
+    },
+    {
+      "column_name": "When",
+      "title": "When",
+      "uidt": "Date"
+    }
+  ]
+}

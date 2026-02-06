@@ -1,0 +1,15 @@
+{
+  "column_name": "SingleSelectCol",
+  "title": "SingleSelectCol",
+  "uidt": "SingleSelect",
+  "colOptions": {
+    "options": [
+      {
+        "title": "A"
+      },
+      {
+        "title": "B"
+      }
+    ]
+  }
+}
