@@ -14,7 +14,51 @@ Build packages before running the CLI locally:
 npm run build
 ```
 
-## Configure
+## Workspaces (Multi-Account Support)
+
+Workspaces allow you to manage multiple NocoDB instances or bases with distinct URLs, tokens, and default Base IDs.
+
+```sh
+# Add a workspace
+nocodb workspace add work https://noco.company.com <token> --base <baseId>
+nocodb workspace add personal https://noco.me.com <token>
+
+# Switch context
+nocodb workspace use work
+nocodb workspace list     # show all workspaces, active marked with *
+nocodb workspace show     # show current workspace config
+```
+
+## Aliases (Namespaced IDs)
+
+Aliases allow you to use friendly names instead of UUIDs. They are namespaced by workspace.
+
+```sh
+# Set aliases in the active workspace
+nocodb alias set tasks <tableId>
+nocodb alias set prayer <tableId>
+
+# Usage (Current Workspace)
+nocodb rows list tasks
+
+# Usage (Cross-Workspace / Explicit)
+nocodb rows list work.tasks
+nocodb rows list personal.tasks
+
+# Base Resolution
+# If a workspace name is used where a Base ID is expected, it resolves to that workspace's default base.
+nocodb tables list personal
+
+# Management
+nocodb alias list         # list aliases for active workspace
+nocodb alias list personal # list aliases for specific workspace
+nocodb alias delete tasks
+nocodb alias clear        # clear all aliases for active workspace
+```
+
+## Configure (Legacy/Global)
+
+These settings act as fallbacks if no workspace is active.
 
 ```sh
 nocodb config set baseUrl http://localhost:8080
