@@ -202,7 +202,7 @@ nocodb --base <baseId> api <tag> <operation> --pretty
 nocodb --base <baseId> api <tag> <operation> --data '{"key":"value"}'
 ```
 
-## Rows (simple CRUD helpers)
+## Rows (CRUD + upsert helpers)
 
 ```sh
 nocodb rows list <tableId>
@@ -210,6 +210,9 @@ nocodb rows read <tableId> <recordId>
 nocodb rows create <tableId> --data '{"Title":"Example"}'
 nocodb rows update <tableId> --data '{"Id":1,"Title":"Updated"}'
 nocodb rows delete <tableId> --data '{"Id":1}'
+nocodb rows upsert <tableId> --match Email=alice@example.com --data '{"Email":"alice@example.com","Title":"Alice"}'
+nocodb rows upsert <tableId> --match Email=alice@example.com --data '{"Title":"Alice"}' --update-only
+nocodb rows upsert <tableId> --match Email=alice@example.com --data '{"Email":"alice@example.com","Title":"Alice"}' --create-only
 ```
 
 ## E2E test script

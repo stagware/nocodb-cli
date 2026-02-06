@@ -29,7 +29,7 @@
 - **Filters** — `filters list/get/create/update/delete`
 - **Sorts** — `sorts list/get/create/update/delete`
 - **Columns** — `columns list/get/create/update/delete` (with JSON schema validation)
-- **Rows** — `rows list/read/create/update/delete` (with schema validation)
+- **Rows** — `rows list/read/create/update/delete/upsert` (with schema validation)
 - **Storage** — `storage upload <filePath>`
 - **Meta** — `meta swagger/endpoints/cache clear`
 - **Dynamic API** — `--base <id> api <tag> <operation>` auto-generated from Swagger
@@ -38,6 +38,7 @@
 ### Testing
 
 - Unit tests for config, headers, and utility parsing
+- Unit tests for row upsert command behavior (`rows-upsert.test.ts`)
 - SDK client unit tests
 - Comprehensive E2E suite (`scripts/e2e-cli.mjs`) covering 40+ column types, CRUD, link columns, attachments, swagger caching
 

@@ -1257,6 +1257,105 @@ rowsCmd
   });
 
 rowsCmd
+  .command("upsert")
+  .argument("tableId", "Table id")
+  .requiredOption("--match <field=value>", "Field/value matcher used to find an existing row")
+  .option("-d, --data <json>", "Request JSON body")
+  .option("-f, --data-file <path>", "Request JSON body from file")
+  .option("-q, --query <key=value>", "Query string parameter", collect, [])
+  .option("--create-only", "Only create, fail if a matching row exists")
+  .option("--update-only", "Only update, fail if no matching row exists")
+  .option("--pretty", "Pretty print JSON response")
+  .option("--format <type>", "Output format (json, csv, table)")
+  .action(async (tableId: string, options: {
+    match: string;
+    data?: string;
+    dataFile?: string;
+    query: string[];
+    createOnly?: boolean;
+    updateOnly?: boolean;
+    pretty?: boolean;
+    format?: string;
+  }) => {
+    try {
+      if (options.createOnly && options.updateOnly) {
+        throw new Error("Choose only one of --create-only or --update-only");
+      }
+
+      const baseId = getBaseId(getBaseIdFromArgv());
+      const [matchField, matchValue] = parseKeyValue(options.match);
+      const body = await readJsonInput(options.data, options.dataFile);
+      if (!isRecordObject(body)) {
+        throw new Error("rows upsert expects a JSON object body");
+      }
+
+      const query = parseQuery(options.query ?? []);
+      const swagger = await loadSwagger(baseId, true);
+      const createOp = findOperation(swagger, "post", `/api/v2/tables/${tableId}/records`);
+      if (createOp) {
+        validateRequestBody(createOp, swagger, body);
+      }
+
+      const client = new NocoClient({ baseUrl: getBaseUrl(), headers: getHeadersConfig(), ...clientOptionsFromSettings() });
+      const listPath = `/api/v2/tables/${tableId}/records`;
+      const listResult = await client.request<unknown>("GET", listPath, {
+        query: Object.keys(query).length ? query : undefined,
+      });
+
+      const rows = extractRows(listResult);
+      const matches = rows.filter((row) => matchesFieldValue(row, matchField, matchValue));
+
+      if (matches.length > 1) {
+        throw new Error(`Multiple rows matched '${matchField}=${matchValue}'. Upsert requires a unique match.`);
+      }
+
+      const runUpdate = async (record: Record<string, unknown>) => {
+        const recordId = getRecordId(record);
+        const updateBody = withRecordId(body, recordId);
+        const updateOp = findOperation(swagger, "patch", `/api/v2/tables/${tableId}/records`);
+        if (updateOp) {
+          validateRequestBody(updateOp, swagger, updateBody);
+        }
+        return client.request("PATCH", listPath, { body: updateBody });
+      };
+
+      if (matches.length === 0) {
+        if (options.updateOnly) {
+          throw new Error(`No rows matched '${matchField}=${matchValue}'.`);
+        }
+        try {
+          const created = await client.request("POST", listPath, { body });
+          printResult(created, options);
+          return;
+        } catch (err) {
+          if (!options.createOnly && isConflictError(err)) {
+            const retryList = await client.request<unknown>("GET", listPath, {
+              query: Object.keys(query).length ? query : undefined,
+            });
+            const retryRows = extractRows(retryList);
+            const retryMatches = retryRows.filter((row) => matchesFieldValue(row, matchField, matchValue));
+            if (retryMatches.length === 1) {
+              const updated = await runUpdate(retryMatches[0]);
+              printResult(updated, options);
+              return;
+            }
+          }
+          throw err;
+        }
+      }
+
+      if (options.createOnly) {
+        throw new Error(`A row already matched '${matchField}=${matchValue}'.`);
+      }
+
+      const updated = await runUpdate(matches[0]);
+      printResult(updated, options);
+    } catch (err) {
+      handleError(err);
+    }
+  });
+
+rowsCmd
   .command("delete")
   .argument("tableId", "Table id")
   .option("-d, --data <json>", "Request JSON body")
@@ -1377,6 +1476,56 @@ function parseQuery(items: string[]): Record<string, string> {
     query[key] = value;
   }
   return query;
+}
+
+function isRecordObject(input: unknown): input is Record<string, unknown> {
+  return typeof input === "object" && input !== null && !Array.isArray(input);
+}
+
+function extractRows(payload: unknown): Record<string, unknown>[] {
+  if (Array.isArray(payload)) {
+    return payload.filter(isRecordObject);
+  }
+  if (isRecordObject(payload) && Array.isArray(payload.list)) {
+    const list = payload.list.filter(isRecordObject);
+    if (list.length !== payload.list.length) {
+      throw new Error("Unexpected row payload shape: list contains non-object values");
+    }
+    return list;
+  }
+  throw new Error("Unexpected rows list response shape");
+}
+
+function matchesFieldValue(row: Record<string, unknown>, field: string, expected: string): boolean {
+  if (!(field in row)) {
+    return false;
+  }
+  const value = row[field];
+  if (value === null || value === undefined) {
+    return false;
+  }
+  return String(value) === expected;
+}
+
+function getRecordId(row: Record<string, unknown>): string | number {
+  const id = row.Id ?? row.id;
+  if (typeof id === "string" || typeof id === "number") {
+    return id;
+  }
+  throw new Error("Matched row does not contain a usable Id field");
+}
+
+function withRecordId(body: Record<string, unknown>, id: string | number): Record<string, unknown> {
+  const incomingId = body.Id ?? body.id;
+  if (incomingId !== undefined && incomingId !== null && String(incomingId) !== String(id)) {
+    throw new Error(`Body Id '${String(incomingId)}' does not match matched record Id '${String(id)}'`);
+  }
+  return { ...body, Id: id };
+}
+
+function isConflictError(err: unknown): boolean {
+  return err instanceof Error && typeof (err as { statusCode?: unknown }).statusCode === "number"
+    && (err as { statusCode: number }).statusCode === 409;
 }
 
 async function bootstrap(): Promise<void> {
