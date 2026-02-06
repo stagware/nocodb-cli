@@ -3,7 +3,7 @@ import { Command } from "commander";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { MetaApi, NocoClient, parseHeader } from "@nocodb/sdk";
+import { MetaApi, NocoClient, parseHeader, DataApi } from "@nocodb/sdk";
 import {
   applyPathParams,
   extractOperations,
@@ -101,6 +101,13 @@ function createMeta(): MetaApi {
   const headers = getHeadersConfig();
   const client = new NocoClient({ baseUrl, headers });
   return new MetaApi(client);
+}
+
+function createData(): DataApi {
+  const baseUrl = getBaseUrl();
+  const headers = getHeadersConfig();
+  const client = new NocoClient({ baseUrl, headers });
+  return new DataApi(client);
 }
 
 const program = new Command();
@@ -1011,6 +1018,70 @@ rowsCmd
       }
       const client = new NocoClient({ baseUrl: getBaseUrl(), headers: getHeadersConfig() });
       const result = await client.request("DELETE", `/api/v2/tables/${tableId}/records`, { body });
+      printResult(result, options);
+    } catch (err) {
+      console.error(err instanceof Error ? err.message : String(err));
+      process.exitCode = 1;
+    }
+  });
+
+const linksCmd = program.command("links").description("Manage linked records");
+
+linksCmd
+  .command("list")
+  .argument("tableId", "Table id")
+  .argument("linkFieldId", "Link field id")
+  .argument("recordId", "Record id")
+  .option("-q, --query <key=value>", "Query string parameter", collect, [])
+  .option("--pretty", "Pretty print JSON response")
+  .option("--format <type>", "Output format (json, csv, table)")
+  .action(async (tableId: string, linkFieldId: string, recordId: string, options: { query: string[]; pretty?: boolean; format?: string }) => {
+    try {
+      const data = createData();
+      const query = parseQuery(options.query ?? []);
+      const result = await data.listLinks(tableId, linkFieldId, recordId, query);
+      printResult(result, options);
+    } catch (err) {
+      console.error(err instanceof Error ? err.message : String(err));
+      process.exitCode = 1;
+    }
+  });
+
+linksCmd
+  .command("create")
+  .argument("tableId", "Table id")
+  .argument("linkFieldId", "Link field id")
+  .argument("recordId", "Record id")
+  .option("-d, --data <json>", "Request JSON body (array of {Id: ...})")
+  .option("-f, --data-file <path>", "Request JSON body from file")
+  .option("--pretty", "Pretty print JSON response")
+  .option("--format <type>", "Output format (json, csv, table)")
+  .action(async (tableId: string, linkFieldId: string, recordId: string, options: { data?: string; dataFile?: string; pretty?: boolean; format?: string }) => {
+    try {
+      const data = createData();
+      const body = await readJsonInput(options.data, options.dataFile);
+      const result = await data.linkRecords(tableId, linkFieldId, recordId, body);
+      printResult(result, options);
+    } catch (err) {
+      console.error(err instanceof Error ? err.message : String(err));
+      process.exitCode = 1;
+    }
+  });
+
+linksCmd
+  .command("delete")
+  .argument("tableId", "Table id")
+  .argument("linkFieldId", "Link field id")
+  .argument("recordId", "Record id")
+  .option("-d, --data <json>", "Request JSON body (array of {Id: ...})")
+  .option("-f, --data-file <path>", "Request JSON body from file")
+  .option("--pretty", "Pretty print JSON response")
+  .option("--format <type>", "Output format (json, csv, table)")
+  .action(async (tableId: string, linkFieldId: string, recordId: string, options: { data?: string; dataFile?: string; pretty?: boolean; format?: string }) => {
+    try {
+      const data = createData();
+      const body = await readJsonInput(options.data, options.dataFile);
+      const result = await data.unlinkRecords(tableId, linkFieldId, recordId, body);
       printResult(result, options);
     } catch (err) {
       console.error(err instanceof Error ? err.message : String(err));

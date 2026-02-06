@@ -615,23 +615,32 @@ async function main() {
         writeJson(tmp, linkPayload);
         const record = createRow(tableId, { Title: "LinkSource" });
         report.rows.linkSourceId = record.Id;
+        console.log(`Testing native links command...`);
         runCli([
-          "--base",
-          BASE_ID,
-          "api",
-          slugify(tagFromPath(swagger, link.urlPath)),
-          slugify(findOperationId(swagger, link.urlPath, "post")),
+          "links",
+          "create",
+          tableId,
           link.linkFieldId,
           String(record.Id),
           "--data-file",
           tmp,
         ]);
+        const listOut = runCli([
+          "links",
+          "list",
+          tableId,
+          link.linkFieldId,
+          String(record.Id),
+          "--pretty",
+        ]);
+        const list = jsonParseOrThrow(listOut);
+        if (!list.list || list.list.length === 0) {
+          throw new Error("Linked record not found in list response");
+        }
         runCli([
-          "--base",
-          BASE_ID,
-          "api",
-          slugify(tagFromPath(swagger, link.urlPath)),
-          slugify(findOperationId(swagger, link.urlPath, "delete")),
+          "links",
+          "delete",
+          tableId,
           link.linkFieldId,
           String(record.Id),
           "--data-file",
