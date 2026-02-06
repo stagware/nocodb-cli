@@ -31,4 +31,70 @@ describe("NocoClient", () => {
       globalThis.fetch = originalFetch;
     }
   });
+
+  it("retries on failure and eventually succeeds", async () => {
+    const originalFetch = globalThis.fetch;
+    let callCount = 0;
+    globalThis.fetch = async () => {
+      callCount++;
+      if (callCount === 1) {
+        return new Response("Server Error", { status: 500, headers: { "content-type": "text/plain" } });
+      }
+      return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "content-type": "application/json" } });
+    };
+
+    try {
+      const client = new NocoClient({
+        baseUrl: "https://example.test",
+        retry: { retry: 2, retryDelay: 0, retryStatusCodes: [500] },
+      });
+      const result = await client.request("GET", "/test");
+      expect(result).toEqual({ ok: true });
+      expect(callCount).toBe(2);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("does not retry when retry is false", async () => {
+    const originalFetch = globalThis.fetch;
+    let callCount = 0;
+    globalThis.fetch = async () => {
+      callCount++;
+      return new Response("Server Error", { status: 500, headers: { "content-type": "text/plain" } });
+    };
+
+    try {
+      const client = new NocoClient({
+        baseUrl: "https://example.test",
+        retry: { retry: false },
+      });
+      await expect(client.request("GET", "/test")).rejects.toThrow();
+      expect(callCount).toBe(1);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("per-request retry overrides client-level retry", async () => {
+    const originalFetch = globalThis.fetch;
+    let callCount = 0;
+    globalThis.fetch = async () => {
+      callCount++;
+      return new Response("Server Error", { status: 500, headers: { "content-type": "text/plain" } });
+    };
+
+    try {
+      const client = new NocoClient({
+        baseUrl: "https://example.test",
+        retry: { retry: 5, retryDelay: 0, retryStatusCodes: [500] },
+      });
+      await expect(
+        client.request("GET", "/test", { retry: { retry: false } })
+      ).rejects.toThrow();
+      expect(callCount).toBe(1);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
 });

@@ -4,28 +4,38 @@ import { ofetch } from "ofetch";
 
 export type HeadersMap = Record<string, string>;
 
+export interface RetryOptions {
+  retry?: number | false;
+  retryDelay?: number;
+  retryStatusCodes?: number[];
+}
+
 export interface RequestOptions {
   headers?: HeadersMap;
   query?: Record<string, string | number | boolean | null | undefined>;
   body?: unknown;
   timeoutMs?: number;
+  retry?: RetryOptions;
 }
 
 export interface ClientOptions {
   baseUrl: string;
   headers?: HeadersMap;
   timeoutMs?: number;
+  retry?: RetryOptions;
 }
 
 export class NocoClient {
   private baseUrl: string;
   private headers: HeadersMap;
   private timeoutMs?: number;
+  private retryOptions?: RetryOptions;
 
   constructor(options: ClientOptions) {
     this.baseUrl = normalizeBaseUrl(options.baseUrl);
     this.headers = { ...(options.headers ?? {}) };
     this.timeoutMs = options.timeoutMs;
+    this.retryOptions = options.retry;
   }
 
   setHeader(name: string, value: string): void {
@@ -39,6 +49,7 @@ export class NocoClient {
   async request<T>(method: string, path: string, options: RequestOptions = {}): Promise<T> {
     const urlPath = path.startsWith("/") ? path : `/${path}`;
     const headers = { ...this.headers, ...(options.headers ?? {}) };
+    const retry = options.retry ?? this.retryOptions;
 
     return ofetch<T>(urlPath, {
       baseURL: this.baseUrl,
@@ -47,6 +58,9 @@ export class NocoClient {
       query: options.query,
       body: options.body as unknown as Record<string, unknown> | BodyInit | null | undefined,
       timeout: options.timeoutMs ?? this.timeoutMs,
+      retry: retry?.retry,
+      retryDelay: retry?.retryDelay,
+      retryStatusCodes: retry?.retryStatusCodes,
     });
   }
 }

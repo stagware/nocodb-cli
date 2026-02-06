@@ -7,7 +7,8 @@
       "WebFetch(domain:nocodb.com)",
       "WebFetch(domain:docs.nocodb.com)",
       "WebFetch(domain:all-apis.nocodb.com)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(ls:*)"
     ]
   }
 }

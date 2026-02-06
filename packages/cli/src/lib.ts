@@ -1,5 +1,35 @@
 import Ajv from "ajv";
 
+interface FetchErrorLike {
+  message: string;
+  status?: number;
+  statusCode?: number;
+  statusText?: string;
+  data?: unknown;
+}
+
+export function isFetchError(err: unknown): err is FetchErrorLike {
+  return err instanceof Error && typeof (err as any).statusCode === "number";
+}
+
+export function handleError(err: unknown): void {
+  if (isFetchError(err)) {
+    const status = err.statusCode ?? err.status;
+    const parts: string[] = [];
+    if (status) parts.push(`HTTP ${status}`);
+    parts.push(err.message);
+    console.error(parts.join(" — "));
+    if (err.data != null && typeof err.data === "object") {
+      console.error(JSON.stringify(err.data, null, 2));
+    } else if (err.data != null) {
+      console.error(String(err.data));
+    }
+  } else {
+    console.error(err instanceof Error ? err.message : String(err));
+  }
+  process.exitCode = 1;
+}
+
 function unwrapData(data: unknown): Record<string, unknown>[] {
   if (Array.isArray(data)) return data;
   if (data && typeof data === "object") {

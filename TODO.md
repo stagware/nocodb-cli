@@ -49,9 +49,9 @@
 
 - **Untyped responses** — all methods return `Promise<unknown>`, no typed generics
 - **No pagination helpers** — no cursor/offset wrappers for large result sets
-- **No retry/timeout logic** — single-shot requests only
+- ~~**No retry/timeout logic** — single-shot requests only~~ ✅ Done (settings file + CLI flags)
 - **No bulk row operations** — NocoDB supports batch create/update/delete natively
-- **No link record CRUD** — can create link *columns* but can't list/create/delete linked *records*
+- ~~**No link record CRUD** — can create link *columns* but can't list/create/delete linked *records*~~ ✅ Done
 - ~~**No attachment upload** — code exists in E2E tests but not exposed in SDK~~ ✅ Done
 - **No user/auth APIs** — no profile, token management, or invitation endpoints
 - **No webhook/automation APIs** — no hook creation or management
@@ -64,7 +64,7 @@
 
 - ~~**No attachment command** — `nocodb attachments upload` (code already in E2E)~~ ✅ Done (`storage upload`)
 - **No bulk row commands** — `rows bulk-create`, `rows bulk-update`
-- **No link record commands** — `links list/create/delete`
+- ~~**No link record commands** — `links list/create/delete`~~ ✅ Done
 - ~~**No output format options** — no `--format csv|table|yaml` or `--select` for field filtering~~ ✅ Done (`--format json|csv|table`)
 - **No `nocodb me`** — no quick way to verify auth/identity
 - **No workspace/org commands**
@@ -78,10 +78,10 @@
 |---|---------|--------|--------|-------|
 | ~~1~~ | ~~Expose attachment upload as CLI command~~ | | | ✅ Done |
 | ~~2~~ | ~~Add `--format` output option (json/csv/table)~~ | | | ✅ Done |
-| 3 | Better error messages with context wrapping | ~100 lines | High | Developer experience |
+| ~~3~~ | ~~Better error messages with context wrapping~~ | | | ✅ Done |
 | 4 | Typed SDK responses (generics on return types) | ~50 lines | Medium | Type safety across the board |
 | 5 | Bulk row operations from file input | ~80 lines | High | Power-user feature, NocoDB supports natively |
-| 6 | Link record management commands | ~100 lines | Medium | Completes the link column story |
+| ~~6~~ | ~~Link record management commands~~ | | | ✅ Done |
 | 7 | `nocodb me` command | ~20 lines | Low | Quick auth sanity check |
 | 8 | Env var support for all config options | ~30 lines | Medium | CI/CD friendliness (`NOCO_TOKEN`, `NOCO_BASE_ID`) |
 

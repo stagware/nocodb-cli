@@ -83,6 +83,36 @@ nocodb columns update <columnId> --data '{"title":"State"}'
 nocodb columns delete <columnId>
 ```
 
+## Settings
+
+Timeout and retry behavior can be configured via `~/.nocodb-cli/settings.json`. Override the directory with `NOCODB_SETTINGS_DIR` env var.
+
+```sh
+nocodb settings show           # print current effective settings
+nocodb settings path           # print the settings file path
+nocodb settings set timeoutMs 5000
+nocodb settings set retryCount 5
+nocodb settings set retryDelay 500
+nocodb settings set retryStatusCodes '[429,500,502,503]'
+nocodb settings reset          # restore defaults
+```
+
+Default values:
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `timeoutMs` | `30000` | Request timeout in milliseconds |
+| `retryCount` | `3` | Number of retries (0 to disable) |
+| `retryDelay` | `300` | Delay between retries in milliseconds |
+| `retryStatusCodes` | `[408,409,425,429,500,502,503,504]` | HTTP status codes that trigger a retry |
+
+CLI flags `--timeout <ms>` and `--retries <count>` override settings for a single invocation:
+
+```sh
+nocodb --timeout 5000 bases list
+nocodb --retries 0 bases list     # disable retries for this call
+```
+
 ## Output formats
 
 All commands support `--pretty` for indented JSON and `--format <type>` for alternative output:
@@ -167,6 +197,23 @@ The script attempts:
 - Link/lookup/rollup/formula column creation (best-effort, logs if unsupported)
 - Attachment upload and row update
 - Writes a JSON summary report to `scripts/e2e-report.json`
+
+## Error messages
+
+The CLI provides contextual error messages for HTTP failures. When the NocoDB server returns an error, you'll see the status code and any response body the server sent back:
+
+```
+HTTP 401 — Unauthorized
+```
+
+```
+HTTP 400 — Bad Request
+{
+  "msg": "Field 'Title' is required"
+}
+```
+
+Non-HTTP errors (invalid JSON input, missing config, validation failures) are printed as-is.
 
 ## Notes
 

@@ -12,6 +12,7 @@ import {
   formatTable,
   getBaseIdFromArgv as parseBaseIdArgv,
   getPathParamNames,
+  handleError,
   isHttpMethod,
   isSwaggerDoc,
   listEndpoints,
@@ -25,8 +26,10 @@ import {
   type SwaggerRequestBody,
 } from "./lib.js";
 import { createConfig, deleteHeader, getHeaders, setHeader } from "./config.js";
+import { loadSettings, saveSettings, resetSettings, getSettingsPath, DEFAULT_SETTINGS, type Settings } from "./settings.js";
 
 const config = createConfig();
+const settings = loadSettings();
 
 function getBaseUrl(): string {
   const baseUrl = config.get("baseUrl");
@@ -96,17 +99,31 @@ function printResult(result: unknown, options?: { pretty?: boolean; format?: str
   console.log(JSON.stringify(result, null, pretty ? 2 : 0));
 }
 
+function clientOptionsFromSettings() {
+  const opts = program.opts();
+  const timeoutMs = opts.timeout ? Number(opts.timeout) : settings.timeoutMs;
+  const retryCount = opts.retries != null ? Number(opts.retries) : settings.retryCount;
+  return {
+    timeoutMs,
+    retry: {
+      retry: retryCount === 0 ? (false as const) : retryCount,
+      retryDelay: settings.retryDelay,
+      retryStatusCodes: settings.retryStatusCodes,
+    },
+  };
+}
+
 function createMeta(): MetaApi {
   const baseUrl = getBaseUrl();
   const headers = getHeadersConfig();
-  const client = new NocoClient({ baseUrl, headers });
+  const client = new NocoClient({ baseUrl, headers, ...clientOptionsFromSettings() });
   return new MetaApi(client);
 }
 
 function createData(): DataApi {
   const baseUrl = getBaseUrl();
   const headers = getHeadersConfig();
-  const client = new NocoClient({ baseUrl, headers });
+  const client = new NocoClient({ baseUrl, headers, ...clientOptionsFromSettings() });
   return new DataApi(client);
 }
 
@@ -115,7 +132,9 @@ program
   .name("nocodb")
   .description("NocoDB CLI (v2)")
   .version("0.1.0")
-  .option("--base <baseId>", "Default base id for dynamic API calls");
+  .option("--base <baseId>", "Default base id for dynamic API calls")
+  .option("--timeout <ms>", "Request timeout in milliseconds")
+  .option("--retries <count>", "Number of retries (0 to disable)");
 
 const configCmd = program.command("config").description("Manage CLI configuration");
 
@@ -217,6 +236,65 @@ headerCmd
     }
   });
 
+const settingsCmd = program.command("settings").description("Manage CLI settings (timeout, retries)");
+
+settingsCmd
+  .command("show")
+  .description("Show current effective settings")
+  .action(() => {
+    if (process.env.NOCO_QUIET !== "1") {
+      console.log(JSON.stringify(settings, null, 2));
+    }
+  });
+
+settingsCmd
+  .command("path")
+  .description("Print the settings file path")
+  .action(() => {
+    if (process.env.NOCO_QUIET !== "1") {
+      console.log(getSettingsPath());
+    }
+  });
+
+settingsCmd
+  .command("set")
+  .argument("key", "Setting key (timeoutMs, retryCount, retryDelay, retryStatusCodes)")
+  .argument("value", "Setting value")
+  .action((key: string, value: string) => {
+    const validKeys: (keyof Settings)[] = ["timeoutMs", "retryCount", "retryDelay", "retryStatusCodes"];
+    if (!validKeys.includes(key as keyof Settings)) {
+      console.error(`Unsupported key '${key}'. Supported keys: ${validKeys.join(", ")}`);
+      process.exitCode = 1;
+      return;
+    }
+    const current = loadSettings();
+    if (key === "retryStatusCodes") {
+      try {
+        current.retryStatusCodes = JSON.parse(value);
+      } catch {
+        console.error("Value for retryStatusCodes must be a JSON array, e.g. [429,500,502]");
+        process.exitCode = 1;
+        return;
+      }
+    } else {
+      (current as any)[key] = Number(value);
+    }
+    saveSettings(current);
+    if (process.env.NOCO_QUIET !== "1") {
+      console.log(`${key} set to ${JSON.stringify((current as any)[key])}`);
+    }
+  });
+
+settingsCmd
+  .command("reset")
+  .description("Reset settings to defaults")
+  .action(() => {
+    resetSettings();
+    if (process.env.NOCO_QUIET !== "1") {
+      console.log("settings reset to defaults");
+    }
+  });
+
 program
   .command("request")
   .description("Make a raw API request")
@@ -239,7 +317,7 @@ program
     try {
       const baseUrl = getBaseUrl();
       const headers = getHeadersConfig();
-      const client = new NocoClient({ baseUrl, headers });
+      const client = new NocoClient({ baseUrl, headers, ...clientOptionsFromSettings() });
 
       const query: Record<string, string> = {};
       for (const item of options.query ?? []) {
@@ -268,8 +346,7 @@ program
 
       printResult(result, options);
     } catch (err) {
-      console.error(err instanceof Error ? err.message : String(err));
-      process.exitCode = 1;
+      handleError(err);
     }
   });
 
@@ -285,8 +362,7 @@ basesCmd
       const result = await meta.listBases();
       printResult(result, options);
     } catch (err) {
-      console.error(err instanceof Error ? err.message : String(err));
-      process.exitCode = 1;
+      handleError(err);
     }
   });
 
@@ -301,8 +377,7 @@ basesCmd
       const result = await meta.getBase(baseId);
       printResult(result, options);
     } catch (err) {
-      console.error(err instanceof Error ? err.message : String(err));
-      process.exitCode = 1;
+      handleError(err);
     }
   });
 
@@ -317,8 +392,7 @@ basesCmd
       const result = await meta.getBaseInfo(baseId);
       printResult(result, options);
     } catch (err) {
-      console.error(err instanceof Error ? err.message : String(err));
-      process.exitCode = 1;
+      handleError(err);
     }
   });
 
@@ -335,8 +409,7 @@ basesCmd
       const result = await meta.createBase(body);
       printResult(result, options);
     } catch (err) {
-      console.error(err instanceof Error ? err.message : String(err));
-      process.exitCode = 1;
+      handleError(err);
     }
   });
 
@@ -354,8 +427,7 @@ basesCmd
       const result = await meta.updateBase(baseId, body);
       printResult(result, options);
     } catch (err) {
-      console.error(err instanceof Error ? err.message : String(err));
-      process.exitCode = 1;
+      handleError(err);
     }
   });
 
@@ -370,8 +442,7 @@ basesCmd
       const result = await meta.deleteBase(baseId);
       printResult(result, options);
     } catch (err) {
-      console.error(err instanceof Error ? err.message : String(err));
-      process.exitCode = 1;
+      handleError(err);
     }
   });
 
@@ -388,8 +459,7 @@ tablesCmd
       const result = await meta.listTables(baseId);
       printResult(result, options);
     } catch (err) {
-      console.error(err instanceof Error ? err.message : String(err));
-      process.exitCode = 1;
+      handleError(err);
     }
   });
 
@@ -404,8 +474,7 @@ tablesCmd
       const result = await meta.getTable(tableId);
       printResult(result, options);
     } catch (err) {
-      console.error(err instanceof Error ? err.message : String(err));
-      process.exitCode = 1;
+      handleError(err);
     }
   });
 
@@ -423,8 +492,7 @@ tablesCmd
       const result = await meta.createTable(baseId, body);
       printResult(result, options);
     } catch (err) {
-      console.error(err instanceof Error ? err.message : String(err));
-      process.exitCode = 1;
+      handleError(err);
     }
   });
 
@@ -442,8 +510,7 @@ tablesCmd
       const result = await meta.updateTable(tableId, body);
       printResult(result, options);
     } catch (err) {
-      console.error(err instanceof Error ? err.message : String(err));
-      process.exitCode = 1;
+      handleError(err);
     }
   });
 
@@ -458,8 +525,7 @@ tablesCmd
       const result = await meta.deleteTable(tableId);
       printResult(result, options);
     } catch (err) {
-      console.error(err instanceof Error ? err.message : String(err));
-      process.exitCode = 1;
+      handleError(err);
     }
   });
 
@@ -476,8 +542,7 @@ viewsCmd
       const result = await meta.listViews(tableId);
       printResult(result, options);
     } catch (err) {
-      console.error(err instanceof Error ? err.message : String(err));
-      process.exitCode = 1;
+      handleError(err);
     }
   });
 
@@ -492,8 +557,7 @@ viewsCmd
       const result = await meta.getView(viewId);
       printResult(result, options);
     } catch (err) {
-      console.error(err instanceof Error ? err.message : String(err));
-      process.exitCode = 1;
+      handleError(err);
     }
   });
 
@@ -511,8 +575,7 @@ viewsCmd
       const result = await meta.createView(tableId, body);
       printResult(result, options);
     } catch (err) {
-      console.error(err instanceof Error ? err.message : String(err));
-      process.exitCode = 1;
+      handleError(err);
     }
   });
 
@@ -530,8 +593,7 @@ viewsCmd
       const result = await meta.updateView(viewId, body);
       printResult(result, options);
     } catch (err) {
-      console.error(err instanceof Error ? err.message : String(err));
-      process.exitCode = 1;
+      handleError(err);
     }
   });
 
@@ -546,8 +608,7 @@ viewsCmd
       const result = await meta.deleteView(viewId);
       printResult(result, options);
     } catch (err) {
-      console.error(err instanceof Error ? err.message : String(err));
-      process.exitCode = 1;
+      handleError(err);
     }
   });
 
@@ -564,8 +625,7 @@ filtersCmd
       const result = await meta.listViewFilters(viewId);
       printResult(result, options);
     } catch (err) {
-      console.error(err instanceof Error ? err.message : String(err));
-      process.exitCode = 1;
+      handleError(err);
     }
   });
 
@@ -580,8 +640,7 @@ filtersCmd
       const result = await meta.getFilter(filterId);
       printResult(result, options);
     } catch (err) {
-      console.error(err instanceof Error ? err.message : String(err));
-      process.exitCode = 1;
+      handleError(err);
     }
   });
 
@@ -599,8 +658,7 @@ filtersCmd
       const result = await meta.createViewFilter(viewId, body);
       printResult(result, options);
     } catch (err) {
-      console.error(err instanceof Error ? err.message : String(err));
-      process.exitCode = 1;
+      handleError(err);
     }
   });
 
@@ -618,8 +676,7 @@ filtersCmd
       const result = await meta.updateFilter(filterId, body);
       printResult(result, options);
     } catch (err) {
-      console.error(err instanceof Error ? err.message : String(err));
-      process.exitCode = 1;
+      handleError(err);
     }
   });
 
@@ -634,8 +691,7 @@ filtersCmd
       const result = await meta.deleteFilter(filterId);
       printResult(result, options);
     } catch (err) {
-      console.error(err instanceof Error ? err.message : String(err));
-      process.exitCode = 1;
+      handleError(err);
     }
   });
 
@@ -652,8 +708,7 @@ sortsCmd
       const result = await meta.listViewSorts(viewId);
       printResult(result, options);
     } catch (err) {
-      console.error(err instanceof Error ? err.message : String(err));
-      process.exitCode = 1;
+      handleError(err);
     }
   });
 
@@ -668,8 +723,7 @@ sortsCmd
       const result = await meta.getSort(sortId);
       printResult(result, options);
     } catch (err) {
-      console.error(err instanceof Error ? err.message : String(err));
-      process.exitCode = 1;
+      handleError(err);
     }
   });
 
@@ -687,8 +741,7 @@ sortsCmd
       const result = await meta.createViewSort(viewId, body);
       printResult(result, options);
     } catch (err) {
-      console.error(err instanceof Error ? err.message : String(err));
-      process.exitCode = 1;
+      handleError(err);
     }
   });
 
@@ -706,8 +759,7 @@ sortsCmd
       const result = await meta.updateSort(sortId, body);
       printResult(result, options);
     } catch (err) {
-      console.error(err instanceof Error ? err.message : String(err));
-      process.exitCode = 1;
+      handleError(err);
     }
   });
 
@@ -722,8 +774,7 @@ sortsCmd
       const result = await meta.deleteSort(sortId);
       printResult(result, options);
     } catch (err) {
-      console.error(err instanceof Error ? err.message : String(err));
-      process.exitCode = 1;
+      handleError(err);
     }
   });
 
@@ -740,8 +791,7 @@ columnsCmd
       const result = await meta.listColumns(tableId);
       printResult(result, options);
     } catch (err) {
-      console.error(err instanceof Error ? err.message : String(err));
-      process.exitCode = 1;
+      handleError(err);
     }
   });
 
@@ -756,8 +806,7 @@ columnsCmd
       const result = await meta.getColumn(columnId);
       printResult(result, options);
     } catch (err) {
-      console.error(err instanceof Error ? err.message : String(err));
-      process.exitCode = 1;
+      handleError(err);
     }
   });
 
@@ -775,8 +824,7 @@ columnsCmd
       const result = await meta.createColumn(tableId, body);
       printResult(result, options);
     } catch (err) {
-      console.error(err instanceof Error ? err.message : String(err));
-      process.exitCode = 1;
+      handleError(err);
     }
   });
 
@@ -794,8 +842,7 @@ columnsCmd
       const result = await meta.updateColumn(columnId, body);
       printResult(result, options);
     } catch (err) {
-      console.error(err instanceof Error ? err.message : String(err));
-      process.exitCode = 1;
+      handleError(err);
     }
   });
 
@@ -810,8 +857,7 @@ columnsCmd
       const result = await meta.deleteColumn(columnId);
       printResult(result, options);
     } catch (err) {
-      console.error(err instanceof Error ? err.message : String(err));
-      process.exitCode = 1;
+      handleError(err);
     }
   });
 
@@ -836,8 +882,7 @@ metaCmd
 
       printResult(doc, options);
     } catch (err) {
-      console.error(err instanceof Error ? err.message : String(err));
-      process.exitCode = 1;
+      handleError(err);
     }
   });
 
@@ -862,8 +907,7 @@ metaCmd
         }
       }
     } catch (err) {
-      console.error(err instanceof Error ? err.message : String(err));
-      process.exitCode = 1;
+      handleError(err);
     }
   });
 
@@ -898,8 +942,7 @@ metaCmd
         console.log(`swagger cache cleared for ${baseId}`);
       }
     } catch (err) {
-      console.error(err instanceof Error ? err.message : String(err));
-      process.exitCode = 1;
+      handleError(err);
     }
   });
 
@@ -915,15 +958,14 @@ rowsCmd
     try {
       const baseId = getBaseId(getBaseIdFromArgv());
       const query = parseQuery(options.query ?? []);
-      const client = new NocoClient({ baseUrl: getBaseUrl(), headers: getHeadersConfig() });
+      const client = new NocoClient({ baseUrl: getBaseUrl(), headers: getHeadersConfig(), ...clientOptionsFromSettings() });
       const result = await client.request("GET", `/api/v2/tables/${tableId}/records`, {
         query: Object.keys(query).length ? query : undefined,
       });
       printResult(result, options);
       await ensureSwaggerCache(baseId);
     } catch (err) {
-      console.error(err instanceof Error ? err.message : String(err));
-      process.exitCode = 1;
+      handleError(err);
     }
   });
 
@@ -938,15 +980,14 @@ rowsCmd
     try {
       const baseId = getBaseId(getBaseIdFromArgv());
       const query = parseQuery(options.query ?? []);
-      const client = new NocoClient({ baseUrl: getBaseUrl(), headers: getHeadersConfig() });
+      const client = new NocoClient({ baseUrl: getBaseUrl(), headers: getHeadersConfig(), ...clientOptionsFromSettings() });
       const result = await client.request("GET", `/api/v2/tables/${tableId}/records/${recordId}`, {
         query: Object.keys(query).length ? query : undefined,
       });
       printResult(result, options);
       await ensureSwaggerCache(baseId);
     } catch (err) {
-      console.error(err instanceof Error ? err.message : String(err));
-      process.exitCode = 1;
+      handleError(err);
     }
   });
 
@@ -966,12 +1007,11 @@ rowsCmd
       if (op) {
         validateRequestBody(op, swagger, body);
       }
-      const client = new NocoClient({ baseUrl: getBaseUrl(), headers: getHeadersConfig() });
+      const client = new NocoClient({ baseUrl: getBaseUrl(), headers: getHeadersConfig(), ...clientOptionsFromSettings() });
       const result = await client.request("POST", `/api/v2/tables/${tableId}/records`, { body });
       printResult(result, options);
     } catch (err) {
-      console.error(err instanceof Error ? err.message : String(err));
-      process.exitCode = 1;
+      handleError(err);
     }
   });
 
@@ -991,12 +1031,11 @@ rowsCmd
       if (op) {
         validateRequestBody(op, swagger, body);
       }
-      const client = new NocoClient({ baseUrl: getBaseUrl(), headers: getHeadersConfig() });
+      const client = new NocoClient({ baseUrl: getBaseUrl(), headers: getHeadersConfig(), ...clientOptionsFromSettings() });
       const result = await client.request("PATCH", `/api/v2/tables/${tableId}/records`, { body });
       printResult(result, options);
     } catch (err) {
-      console.error(err instanceof Error ? err.message : String(err));
-      process.exitCode = 1;
+      handleError(err);
     }
   });
 
@@ -1016,12 +1055,11 @@ rowsCmd
       if (op) {
         validateRequestBody(op, swagger, body);
       }
-      const client = new NocoClient({ baseUrl: getBaseUrl(), headers: getHeadersConfig() });
+      const client = new NocoClient({ baseUrl: getBaseUrl(), headers: getHeadersConfig(), ...clientOptionsFromSettings() });
       const result = await client.request("DELETE", `/api/v2/tables/${tableId}/records`, { body });
       printResult(result, options);
     } catch (err) {
-      console.error(err instanceof Error ? err.message : String(err));
-      process.exitCode = 1;
+      handleError(err);
     }
   });
 
@@ -1042,8 +1080,7 @@ linksCmd
       const result = await data.listLinks(tableId, linkFieldId, recordId, query);
       printResult(result, options);
     } catch (err) {
-      console.error(err instanceof Error ? err.message : String(err));
-      process.exitCode = 1;
+      handleError(err);
     }
   });
 
@@ -1063,8 +1100,7 @@ linksCmd
       const result = await data.linkRecords(tableId, linkFieldId, recordId, body);
       printResult(result, options);
     } catch (err) {
-      console.error(err instanceof Error ? err.message : String(err));
-      process.exitCode = 1;
+      handleError(err);
     }
   });
 
@@ -1084,8 +1120,7 @@ linksCmd
       const result = await data.unlinkRecords(tableId, linkFieldId, recordId, body);
       printResult(result, options);
     } catch (err) {
-      console.error(err instanceof Error ? err.message : String(err));
-      process.exitCode = 1;
+      handleError(err);
     }
   });
 
@@ -1102,8 +1137,7 @@ storageCmd
       const result = await meta.uploadAttachment(filePath);
       printResult(result, options);
     } catch (err) {
-      console.error(err instanceof Error ? err.message : String(err));
-      process.exitCode = 1;
+      handleError(err);
     }
   });
 
@@ -1130,8 +1164,7 @@ async function bootstrap(): Promise<void> {
     }
     await program.parseAsync(process.argv);
   } catch (err) {
-    console.error(err instanceof Error ? err.message : String(err));
-    process.exitCode = 1;
+    handleError(err);
   }
 }
 
@@ -1229,7 +1262,7 @@ async function registerApiCommands(parent: Command, baseId: string): Promise<voi
           const body = await maybeReadBody(options.data, options.dataFile);
           validateRequestBody(op, swagger, body);
 
-          const client = new NocoClient({ baseUrl: getBaseUrl(), headers: getHeadersConfig() });
+          const client = new NocoClient({ baseUrl: getBaseUrl(), headers: getHeadersConfig(), ...clientOptionsFromSettings() });
           const result = await client.request(op.method.toUpperCase(), finalPath, {
             query: Object.keys(query).length ? query : undefined,
             headers: Object.keys(requestHeaders).length ? requestHeaders : undefined,
@@ -1238,8 +1271,7 @@ async function registerApiCommands(parent: Command, baseId: string): Promise<voi
 
           printResult(result, options);
         } catch (err) {
-          console.error(err instanceof Error ? err.message : String(err));
-          process.exitCode = 1;
+          handleError(err);
         }
       });
   }
