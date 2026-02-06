@@ -13,6 +13,7 @@
 - **Sorts** — list, create, get, update, delete
 - **Columns** — list, create, get, update, delete
 - **Swagger** — getBaseSwagger
+- **Storage** — uploadAttachment
 - **Low-level** — `NocoClient.request()`, `parseHeader()`, `normalizeBaseUrl()`
 
 ### CLI (`packages/cli/src/index.ts`)
@@ -29,8 +30,10 @@
 - **Sorts** — `sorts list/get/create/update/delete`
 - **Columns** — `columns list/get/create/update/delete` (with JSON schema validation)
 - **Rows** — `rows list/read/create/update/delete` (with schema validation)
+- **Storage** — `storage upload <filePath>`
 - **Meta** — `meta swagger/endpoints/cache clear`
 - **Dynamic API** — `--base <id> api <tag> <operation>` auto-generated from Swagger
+- **Output formats** — `--format json|csv|table` on all commands, `--pretty` for indented JSON
 
 ### Testing
 
@@ -49,7 +52,7 @@
 - **No retry/timeout logic** — single-shot requests only
 - **No bulk row operations** — NocoDB supports batch create/update/delete natively
 - **No link record CRUD** — can create link *columns* but can't list/create/delete linked *records*
-- **No attachment upload** — code exists in E2E tests but not exposed in SDK
+- ~~**No attachment upload** — code exists in E2E tests but not exposed in SDK~~ ✅ Done
 - **No user/auth APIs** — no profile, token management, or invitation endpoints
 - **No webhook/automation APIs** — no hook creation or management
 - **No workspace/org APIs** — no workspace CRUD or member management
@@ -59,10 +62,10 @@
 
 ### CLI Gaps
 
-- **No attachment command** — `nocodb attachments upload` (code already in E2E)
+- ~~**No attachment command** — `nocodb attachments upload` (code already in E2E)~~ ✅ Done (`storage upload`)
 - **No bulk row commands** — `rows bulk-create`, `rows bulk-update`
 - **No link record commands** — `links list/create/delete`
-- **No output format options** — no `--format csv|table|yaml` or `--select` for field filtering
+- ~~**No output format options** — no `--format csv|table|yaml` or `--select` for field filtering~~ ✅ Done (`--format json|csv|table`)
 - **No `nocodb me`** — no quick way to verify auth/identity
 - **No workspace/org commands**
 - **No help examples** — commands lack inline usage examples
@@ -73,8 +76,8 @@
 
 | # | Feature | Effort | Impact | Notes |
 |---|---------|--------|--------|-------|
-| 1 | Expose attachment upload as CLI command | ~30 lines | Medium | Code already exists in E2E tests |
-| 2 | Add `--format` output option (json/csv/table) | ~100 lines | High | Big usability boost for scripting |
+| ~~1~~ | ~~Expose attachment upload as CLI command~~ | | | ✅ Done |
+| ~~2~~ | ~~Add `--format` output option (json/csv/table)~~ | | | ✅ Done |
 | 3 | Better error messages with context wrapping | ~100 lines | High | Developer experience |
 | 4 | Typed SDK responses (generics on return types) | ~50 lines | Medium | Type safety across the board |
 | 5 | Bulk row operations from file input | ~80 lines | High | Power-user feature, NocoDB supports natively |
