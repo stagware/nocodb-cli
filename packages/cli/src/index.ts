@@ -48,14 +48,16 @@ function getBaseUrl(): string {
 
   const baseUrl = config.get("baseUrl");
   if (!baseUrl) {
-    throw new Error("Base URL is not set. Run: nocodb workspace add <name> <url> <token>");
+    throw new Error(
+      "Base URL is not set. Run either: nocodb workspace add <name> <url> <token> or: nocodb config set baseUrl <url>",
+    );
   }
   return baseUrl;
 }
 
 function getBaseId(fallback?: string): string {
   const ws = getActiveWorkspace();
-  const baseId = fallback ?? config.get("baseId") ?? ws?.baseId;
+  const baseId = fallback ?? ws?.baseId ?? config.get("baseId");
 
   if (!baseId) {
     throw new Error("Base id is not set. Use --base <id> or: nocodb config set baseId <id>");
@@ -391,12 +393,27 @@ aliasCmd
     let targetWs = getActiveWorkspaceName();
     let aliasName = name;
 
-    if (name.includes(".")) {
-      [targetWs, aliasName] = name.split(".");
+    const dotIndex = name.indexOf(".");
+    if (dotIndex !== -1) {
+      const wsPart = name.slice(0, dotIndex);
+      const aliasPart = name.slice(dotIndex + 1);
+
+      if (!wsPart || !aliasPart) {
+        console.error("Invalid alias format. Use 'workspace.alias' with non-empty workspace and alias names.");
+        process.exit(1);
+      }
+
+      targetWs = wsPart;
+      aliasName = aliasPart;
     }
 
     if (!targetWs || !multiConfig[targetWs]) {
-      console.error("No active workspace. Use: nocodb workspace use <name> or specify workspace.alias");
+      console.error("Workspace not found. Use: nocodb workspace use <name> or specify workspace.alias");
+      process.exit(1);
+    }
+
+    if (!aliasName) {
+      console.error("Alias name cannot be empty.");
       process.exit(1);
     }
 
@@ -411,8 +428,8 @@ aliasCmd
   .action((wsName?: string) => {
     const target = wsName ?? getActiveWorkspaceName();
     if (!target || !multiConfig[target]) {
-      console.log(JSON.stringify(multiConfig, null, 2));
-      return;
+      console.error("Workspace not found. Use: nocodb workspace use <name> or specify a workspace name.");
+      process.exit(1);
     }
     console.log(JSON.stringify(multiConfig[target].aliases, null, 2));
   });
@@ -424,12 +441,22 @@ aliasCmd
     let targetWs = getActiveWorkspaceName();
     let aliasName = name;
 
-    if (name.includes(".")) {
-      [targetWs, aliasName] = name.split(".");
+    const dotIndex = name.indexOf(".");
+    if (dotIndex !== -1) {
+      const wsPart = name.slice(0, dotIndex);
+      const aliasPart = name.slice(dotIndex + 1);
+
+      if (!wsPart || !aliasPart) {
+        console.error("Invalid alias format. Use 'workspace.alias' with non-empty workspace and alias names.");
+        process.exit(1);
+      }
+
+      targetWs = wsPart;
+      aliasName = aliasPart;
     }
 
     if (!targetWs || !multiConfig[targetWs]) {
-      console.error("Workspace not found.");
+      console.error("Workspace not found. Use: nocodb workspace use <name> or specify workspace.alias");
       process.exit(1);
     }
 
@@ -1122,10 +1149,15 @@ rowsCmd
   .option("--format <type>", "Output format (json, csv, table)")
   .action(async (tableId: string, options: { query: string[]; pretty?: boolean; format?: string }) => {
     try {
-      const resolvedTableId = resolveNamespacedAlias(tableId, multiConfig, getActiveWorkspaceName()).id;
+      const resolved = resolveNamespacedAlias(tableId, multiConfig, getActiveWorkspaceName());
+      const resolvedTableId = resolved.id;
       const baseId = getBaseId(getBaseIdFromArgv());
       const query = parseQuery(options.query ?? []);
-      const client = new NocoClient({ baseUrl: getBaseUrl(), headers: getHeadersConfig(), ...clientOptionsFromSettings() });
+      const client = new NocoClient({
+        baseUrl: resolved.workspace?.baseUrl ?? getBaseUrl(),
+        headers: resolved.workspace?.headers ?? getHeadersConfig(),
+        ...clientOptionsFromSettings(),
+      });
       const result = await client.request("GET", `/api/v2/tables/${resolvedTableId}/records`, {
         query: Object.keys(query).length ? query : undefined,
       });
@@ -1145,10 +1177,15 @@ rowsCmd
   .option("--format <type>", "Output format (json, csv, table)")
   .action(async (tableId: string, recordId: string, options: { query: string[]; pretty?: boolean; format?: string }) => {
     try {
-      const resolvedTableId = resolveNamespacedAlias(tableId, multiConfig, getActiveWorkspaceName()).id;
+      const resolved = resolveNamespacedAlias(tableId, multiConfig, getActiveWorkspaceName());
+      const resolvedTableId = resolved.id;
       const baseId = getBaseId(getBaseIdFromArgv());
       const query = parseQuery(options.query ?? []);
-      const client = new NocoClient({ baseUrl: getBaseUrl(), headers: getHeadersConfig(), ...clientOptionsFromSettings() });
+      const client = new NocoClient({
+        baseUrl: resolved.workspace?.baseUrl ?? getBaseUrl(),
+        headers: resolved.workspace?.headers ?? getHeadersConfig(),
+        ...clientOptionsFromSettings(),
+      });
       const result = await client.request("GET", `/api/v2/tables/${resolvedTableId}/records/${recordId}`, {
         query: Object.keys(query).length ? query : undefined,
       });
@@ -1168,7 +1205,8 @@ rowsCmd
   .option("--format <type>", "Output format (json, csv, table)")
   .action(async (tableId: string, options: { data?: string; dataFile?: string; pretty?: boolean; format?: string }) => {
     try {
-      const resolvedTableId = resolveNamespacedAlias(tableId, multiConfig, getActiveWorkspaceName()).id;
+      const resolved = resolveNamespacedAlias(tableId, multiConfig, getActiveWorkspaceName());
+      const resolvedTableId = resolved.id;
       const baseId = getBaseId(getBaseIdFromArgv());
       const body = await readJsonInput(options.data, options.dataFile);
       const swagger = await loadSwagger(baseId, true);
@@ -1176,7 +1214,11 @@ rowsCmd
       if (op) {
         validateRequestBody(op, swagger, body);
       }
-      const client = new NocoClient({ baseUrl: getBaseUrl(), headers: getHeadersConfig(), ...clientOptionsFromSettings() });
+      const client = new NocoClient({
+        baseUrl: resolved.workspace?.baseUrl ?? getBaseUrl(),
+        headers: resolved.workspace?.headers ?? getHeadersConfig(),
+        ...clientOptionsFromSettings(),
+      });
       const result = await client.request("POST", `/api/v2/tables/${resolvedTableId}/records`, { body });
       printResult(result, options);
     } catch (err) {
@@ -1193,7 +1235,8 @@ rowsCmd
   .option("--format <type>", "Output format (json, csv, table)")
   .action(async (tableId: string, options: { data?: string; dataFile?: string; pretty?: boolean; format?: string }) => {
     try {
-      const resolvedTableId = resolveNamespacedAlias(tableId, multiConfig, getActiveWorkspaceName()).id;
+      const resolved = resolveNamespacedAlias(tableId, multiConfig, getActiveWorkspaceName());
+      const resolvedTableId = resolved.id;
       const baseId = getBaseId(getBaseIdFromArgv());
       const body = await readJsonInput(options.data, options.dataFile);
       const swagger = await loadSwagger(baseId, true);
@@ -1201,7 +1244,11 @@ rowsCmd
       if (op) {
         validateRequestBody(op, swagger, body);
       }
-      const client = new NocoClient({ baseUrl: getBaseUrl(), headers: getHeadersConfig(), ...clientOptionsFromSettings() });
+      const client = new NocoClient({
+        baseUrl: resolved.workspace?.baseUrl ?? getBaseUrl(),
+        headers: resolved.workspace?.headers ?? getHeadersConfig(),
+        ...clientOptionsFromSettings(),
+      });
       const result = await client.request("PATCH", `/api/v2/tables/${resolvedTableId}/records`, { body });
       printResult(result, options);
     } catch (err) {
@@ -1218,7 +1265,8 @@ rowsCmd
   .option("--format <type>", "Output format (json, csv, table)")
   .action(async (tableId: string, options: { data?: string; dataFile?: string; pretty?: boolean; format?: string }) => {
     try {
-      const resolvedTableId = resolveNamespacedAlias(tableId, multiConfig, getActiveWorkspaceName()).id;
+      const resolved = resolveNamespacedAlias(tableId, multiConfig, getActiveWorkspaceName());
+      const resolvedTableId = resolved.id;
       const baseId = getBaseId(getBaseIdFromArgv());
       const body = await readJsonInput(options.data, options.dataFile);
       const swagger = await loadSwagger(baseId, true);
@@ -1226,7 +1274,11 @@ rowsCmd
       if (op) {
         validateRequestBody(op, swagger, body);
       }
-      const client = new NocoClient({ baseUrl: getBaseUrl(), headers: getHeadersConfig(), ...clientOptionsFromSettings() });
+      const client = new NocoClient({
+        baseUrl: resolved.workspace?.baseUrl ?? getBaseUrl(),
+        headers: resolved.workspace?.headers ?? getHeadersConfig(),
+        ...clientOptionsFromSettings(),
+      });
       const result = await client.request("DELETE", `/api/v2/tables/${resolvedTableId}/records`, { body });
       printResult(result, options);
     } catch (err) {

@@ -20,8 +20,13 @@ export function getAliasesPath(): string {
 export function loadMultiConfig(): MultiConfig {
   try {
     const raw = fs.readFileSync(getAliasesPath(), "utf8");
-    const parsed = JSON.parse(raw);
+    const parsed = JSON.parse(raw) as MultiConfig;
     if (parsed && typeof parsed === "object") {
+      // Normalize entries to ensure required objects exist
+      for (const name of Object.keys(parsed)) {
+        if (!parsed[name].headers) parsed[name].headers = {};
+        if (!parsed[name].aliases) parsed[name].aliases = {};
+      }
       return parsed;
     }
   } catch {
@@ -46,11 +51,15 @@ export function resolveNamespacedAlias(
   currentWorkspace?: string
 ): { id: string; workspace?: WorkspaceConfig } {
   // 1. Check for explicit namespace (e.g. work.tasks)
-  if (input.includes(".")) {
-    const [wsName, aliasName] = input.split(".");
-    const ws = config[wsName];
-    if (ws && ws.aliases[aliasName]) {
-      return { id: ws.aliases[aliasName], workspace: ws };
+  const firstDotIndex = input.indexOf(".");
+  if (firstDotIndex !== -1) {
+    const wsName = input.slice(0, firstDotIndex);
+    const aliasName = input.slice(firstDotIndex + 1);
+    if (wsName && aliasName) {
+      const ws = config[wsName];
+      if (ws && ws.aliases[aliasName]) {
+        return { id: ws.aliases[aliasName], workspace: ws };
+      }
     }
   }
 
