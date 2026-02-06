@@ -223,6 +223,22 @@ export class MetaApi {
   }
 }
 
+export class DataApi {
+  constructor(private client: NocoClient) {}
+
+  listLinks(tableId: string, linkFieldId: string, recordId: string, query?: Record<string, any>): Promise<unknown> {
+    return this.client.request("GET", `/api/v2/tables/${tableId}/links/${linkFieldId}/records/${recordId}`, { query });
+  }
+
+  linkRecords(tableId: string, linkFieldId: string, recordId: string, body: unknown): Promise<unknown> {
+    return this.client.request("POST", `/api/v2/tables/${tableId}/links/${linkFieldId}/records/${recordId}`, { body });
+  }
+
+  unlinkRecords(tableId: string, linkFieldId: string, recordId: string, body: unknown): Promise<unknown> {
+    return this.client.request("DELETE", `/api/v2/tables/${tableId}/links/${linkFieldId}/records/${recordId}`, { body });
+  }
+}
+
 export function normalizeBaseUrl(input: string): string {
   return input.replace(/\/+$/, "");
 }

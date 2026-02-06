@@ -19,6 +19,8 @@ jobs:
             packages/cli/package-lock.json
       - name: Install SDK deps
         run: npm --prefix packages/sdk install
+      - name: Build SDK
+        run: npm --prefix packages/sdk run build
       - name: Install CLI deps
         run: npm --prefix packages/cli install
       - name: Run tests
