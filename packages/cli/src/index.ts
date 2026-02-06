@@ -1282,6 +1282,8 @@ rowsCmd
         throw new Error("Choose only one of --create-only or --update-only");
       }
 
+      const resolved = resolveNamespacedAlias(tableId, multiConfig, getActiveWorkspaceName());
+      const resolvedTableId = resolved.id;
       const baseId = getBaseId(getBaseIdFromArgv());
       const [matchField, matchValue] = parseKeyValue(options.match);
       const body = await readJsonInput(options.data, options.dataFile);
@@ -1291,13 +1293,17 @@ rowsCmd
 
       const query = parseQuery(options.query ?? []);
       const swagger = await loadSwagger(baseId, true);
-      const createOp = findOperation(swagger, "post", `/api/v2/tables/${tableId}/records`);
+      const createOp = findOperation(swagger, "post", `/api/v2/tables/${resolvedTableId}/records`);
       if (createOp) {
         validateRequestBody(createOp, swagger, body);
       }
 
-      const client = new NocoClient({ baseUrl: getBaseUrl(), headers: getHeadersConfig(), ...clientOptionsFromSettings() });
-      const listPath = `/api/v2/tables/${tableId}/records`;
+      const client = new NocoClient({
+        baseUrl: resolved.workspace?.baseUrl ?? getBaseUrl(),
+        headers: resolved.workspace?.headers ?? getHeadersConfig(),
+        ...clientOptionsFromSettings(),
+      });
+      const listPath = `/api/v2/tables/${resolvedTableId}/records`;
       const listResult = await client.request<unknown>("GET", listPath, {
         query: Object.keys(query).length ? query : undefined,
       });
@@ -1312,7 +1318,7 @@ rowsCmd
       const runUpdate = async (record: Record<string, unknown>) => {
         const recordId = getRecordId(record);
         const updateBody = withRecordId(body, recordId);
-        const updateOp = findOperation(swagger, "patch", `/api/v2/tables/${tableId}/records`);
+        const updateOp = findOperation(swagger, "patch", `/api/v2/tables/${resolvedTableId}/records`);
         if (updateOp) {
           validateRequestBody(updateOp, swagger, updateBody);
         }
@@ -1397,9 +1403,16 @@ linksCmd
   .option("--format <type>", "Output format (json, csv, table)")
   .action(async (tableId: string, linkFieldId: string, recordId: string, options: { query: string[]; pretty?: boolean; format?: string }) => {
     try {
-      const data = createData();
+      const resolved = resolveNamespacedAlias(tableId, multiConfig, getActiveWorkspaceName());
+      const resolvedTableId = resolved.id;
+      const client = new NocoClient({
+        baseUrl: resolved.workspace?.baseUrl ?? getBaseUrl(),
+        headers: resolved.workspace?.headers ?? getHeadersConfig(),
+        ...clientOptionsFromSettings(),
+      });
+      const data = new DataApi(client);
       const query = parseQuery(options.query ?? []);
-      const result = await data.listLinks(tableId, linkFieldId, recordId, query);
+      const result = await data.listLinks(resolvedTableId, linkFieldId, recordId, query);
       printResult(result, options);
     } catch (err) {
       handleError(err);
@@ -1417,9 +1430,16 @@ linksCmd
   .option("--format <type>", "Output format (json, csv, table)")
   .action(async (tableId: string, linkFieldId: string, recordId: string, options: { data?: string; dataFile?: string; pretty?: boolean; format?: string }) => {
     try {
-      const data = createData();
+      const resolved = resolveNamespacedAlias(tableId, multiConfig, getActiveWorkspaceName());
+      const resolvedTableId = resolved.id;
+      const client = new NocoClient({
+        baseUrl: resolved.workspace?.baseUrl ?? getBaseUrl(),
+        headers: resolved.workspace?.headers ?? getHeadersConfig(),
+        ...clientOptionsFromSettings(),
+      });
+      const data = new DataApi(client);
       const body = await readJsonInput(options.data, options.dataFile);
-      const result = await data.linkRecords(tableId, linkFieldId, recordId, body);
+      const result = await data.linkRecords(resolvedTableId, linkFieldId, recordId, body);
       printResult(result, options);
     } catch (err) {
       handleError(err);
@@ -1437,9 +1457,16 @@ linksCmd
   .option("--format <type>", "Output format (json, csv, table)")
   .action(async (tableId: string, linkFieldId: string, recordId: string, options: { data?: string; dataFile?: string; pretty?: boolean; format?: string }) => {
     try {
-      const data = createData();
+      const resolved = resolveNamespacedAlias(tableId, multiConfig, getActiveWorkspaceName());
+      const resolvedTableId = resolved.id;
+      const client = new NocoClient({
+        baseUrl: resolved.workspace?.baseUrl ?? getBaseUrl(),
+        headers: resolved.workspace?.headers ?? getHeadersConfig(),
+        ...clientOptionsFromSettings(),
+      });
+      const data = new DataApi(client);
       const body = await readJsonInput(options.data, options.dataFile);
-      const result = await data.unlinkRecords(tableId, linkFieldId, recordId, body);
+      const result = await data.unlinkRecords(resolvedTableId, linkFieldId, recordId, body);
       printResult(result, options);
     } catch (err) {
       handleError(err);
