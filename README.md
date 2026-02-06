@@ -213,6 +213,9 @@ nocodb rows delete <tableId> --data '{"Id":1}'
 nocodb rows upsert <tableId> --match Email=alice@example.com --data '{"Email":"alice@example.com","Title":"Alice"}'
 nocodb rows upsert <tableId> --match Email=alice@example.com --data '{"Title":"Alice"}' --update-only
 nocodb rows upsert <tableId> --match Email=alice@example.com --data '{"Email":"alice@example.com","Title":"Alice"}' --create-only
+nocodb rows bulk-create <tableId> --data '[{"Title":"A"},{"Title":"B"}]'
+nocodb rows bulk-update <tableId> --data '[{"Id":1,"Title":"A1"},{"Id":2,"Title":"B1"}]'
+nocodb rows bulk-delete <tableId> --data '[{"Id":1},{"Id":2}]'
 ```
 
 ## E2E test script

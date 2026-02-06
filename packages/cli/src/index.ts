@@ -1227,6 +1227,37 @@ rowsCmd
   });
 
 rowsCmd
+  .command("bulk-create")
+  .argument("tableId", "Table id")
+  .option("-d, --data <json>", "Request JSON body (array of row objects)")
+  .option("-f, --data-file <path>", "Request JSON body from file")
+  .option("--pretty", "Pretty print JSON response")
+  .option("--format <type>", "Output format (json, csv, table)")
+  .action(async (tableId: string, options: { data?: string; dataFile?: string; pretty?: boolean; format?: string }) => {
+    try {
+      const resolved = resolveNamespacedAlias(tableId, multiConfig, getActiveWorkspaceName());
+      const resolvedTableId = resolved.id;
+      const baseId = getBaseId(getBaseIdFromArgv());
+      const body = await readJsonInput(options.data, options.dataFile);
+      const rows = expectRecordArray(body, "rows bulk-create expects a JSON array of row objects");
+      const swagger = await loadSwagger(baseId, true);
+      const op = findOperation(swagger, "post", `/api/v2/tables/${resolvedTableId}/records`);
+      if (op) {
+        validateRequestBody(op, swagger, rows);
+      }
+      const client = new NocoClient({
+        baseUrl: resolved.workspace?.baseUrl ?? getBaseUrl(),
+        headers: resolved.workspace?.headers ?? getHeadersConfig(),
+        ...clientOptionsFromSettings(),
+      });
+      const result = await client.request("POST", `/api/v2/tables/${resolvedTableId}/records`, { body: rows });
+      printResult(result, options);
+    } catch (err) {
+      handleError(err);
+    }
+  });
+
+rowsCmd
   .command("update")
   .argument("tableId", "Table id")
   .option("-d, --data <json>", "Request JSON body")
@@ -1250,6 +1281,37 @@ rowsCmd
         ...clientOptionsFromSettings(),
       });
       const result = await client.request("PATCH", `/api/v2/tables/${resolvedTableId}/records`, { body });
+      printResult(result, options);
+    } catch (err) {
+      handleError(err);
+    }
+  });
+
+rowsCmd
+  .command("bulk-update")
+  .argument("tableId", "Table id")
+  .option("-d, --data <json>", "Request JSON body (array of row objects with Id)")
+  .option("-f, --data-file <path>", "Request JSON body from file")
+  .option("--pretty", "Pretty print JSON response")
+  .option("--format <type>", "Output format (json, csv, table)")
+  .action(async (tableId: string, options: { data?: string; dataFile?: string; pretty?: boolean; format?: string }) => {
+    try {
+      const resolved = resolveNamespacedAlias(tableId, multiConfig, getActiveWorkspaceName());
+      const resolvedTableId = resolved.id;
+      const baseId = getBaseId(getBaseIdFromArgv());
+      const body = await readJsonInput(options.data, options.dataFile);
+      const rows = expectRecordArray(body, "rows bulk-update expects a JSON array of row objects");
+      const swagger = await loadSwagger(baseId, true);
+      const op = findOperation(swagger, "patch", `/api/v2/tables/${resolvedTableId}/records`);
+      if (op) {
+        validateRequestBody(op, swagger, rows);
+      }
+      const client = new NocoClient({
+        baseUrl: resolved.workspace?.baseUrl ?? getBaseUrl(),
+        headers: resolved.workspace?.headers ?? getHeadersConfig(),
+        ...clientOptionsFromSettings(),
+      });
+      const result = await client.request("PATCH", `/api/v2/tables/${resolvedTableId}/records`, { body: rows });
       printResult(result, options);
     } catch (err) {
       handleError(err);
@@ -1356,6 +1418,37 @@ rowsCmd
 
       const updated = await runUpdate(matches[0]);
       printResult(updated, options);
+    } catch (err) {
+      handleError(err);
+    }
+  });
+
+rowsCmd
+  .command("bulk-delete")
+  .argument("tableId", "Table id")
+  .option("-d, --data <json>", "Request JSON body (array of row identifiers)")
+  .option("-f, --data-file <path>", "Request JSON body from file")
+  .option("--pretty", "Pretty print JSON response")
+  .option("--format <type>", "Output format (json, csv, table)")
+  .action(async (tableId: string, options: { data?: string; dataFile?: string; pretty?: boolean; format?: string }) => {
+    try {
+      const resolved = resolveNamespacedAlias(tableId, multiConfig, getActiveWorkspaceName());
+      const resolvedTableId = resolved.id;
+      const baseId = getBaseId(getBaseIdFromArgv());
+      const body = await readJsonInput(options.data, options.dataFile);
+      const rows = expectRecordArray(body, "rows bulk-delete expects a JSON array body");
+      const swagger = await loadSwagger(baseId, true);
+      const op = findOperation(swagger, "delete", `/api/v2/tables/${resolvedTableId}/records`);
+      if (op) {
+        validateRequestBody(op, swagger, rows);
+      }
+      const client = new NocoClient({
+        baseUrl: resolved.workspace?.baseUrl ?? getBaseUrl(),
+        headers: resolved.workspace?.headers ?? getHeadersConfig(),
+        ...clientOptionsFromSettings(),
+      });
+      const result = await client.request("DELETE", `/api/v2/tables/${resolvedTableId}/records`, { body: rows });
+      printResult(result, options);
     } catch (err) {
       handleError(err);
     }
@@ -1507,6 +1600,17 @@ function parseQuery(items: string[]): Record<string, string> {
 
 function isRecordObject(input: unknown): input is Record<string, unknown> {
   return typeof input === "object" && input !== null && !Array.isArray(input);
+}
+
+function expectRecordArray(input: unknown, errorMessage: string): Record<string, unknown>[] {
+  if (!Array.isArray(input)) {
+    throw new Error(errorMessage);
+  }
+  const rows = input.filter(isRecordObject);
+  if (rows.length !== input.length) {
+    throw new Error(errorMessage);
+  }
+  return rows;
 }
 
 function extractRows(payload: unknown): Record<string, unknown>[] {

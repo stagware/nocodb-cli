@@ -39,6 +39,7 @@
 
 - Unit tests for config, headers, and utility parsing
 - Unit tests for row upsert command behavior (`rows-upsert.test.ts`)
+- Unit tests for bulk row command behavior (`rows-bulk.test.ts`)
 - SDK client unit tests
 - Comprehensive E2E suite (`scripts/e2e-cli.mjs`) covering 40+ column types, CRUD, link columns, attachments, swagger caching
 
@@ -64,7 +65,7 @@
 ### CLI Gaps
 
 - ~~**No attachment command** — `nocodb attachments upload` (code already in E2E)~~ ✅ Done (`storage upload`)
-- **No bulk row commands** — `rows bulk-create`, `rows bulk-update`
+- ~~**No bulk row commands** — `rows bulk-create`, `rows bulk-update`~~ ✅ Done (`rows bulk-create/bulk-update/bulk-delete`)
 - ~~**No link record commands** — `links list/create/delete`~~ ✅ Done
 - ~~**No output format options** — no `--format csv|table|yaml` or `--select` for field filtering~~ ✅ Done (`--format json|csv|table`)
 - **No `nocodb me`** — no quick way to verify auth/identity
