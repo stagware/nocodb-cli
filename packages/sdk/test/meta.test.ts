@@ -1,62 +1,74 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, beforeEach } from "vitest";
 import { NocoClient, MetaApi } from "../src/index.js";
 
 describe("MetaApi", () => {
-  const client = new NocoClient({ baseUrl: "http://test" });
-  const api = new MetaApi(client);
+  let client: NocoClient;
+  let api: MetaApi;
 
-  it("listBases calls correct endpoint", async () => {
-    const spy = vi.spyOn(client, "request").mockResolvedValue([]);
-    await api.listBases();
-    expect(spy).toHaveBeenCalledWith("GET", "/api/v2/meta/bases");
+  beforeEach(() => {
+    client = new NocoClient({ baseUrl: "http://test" });
+    api = new MetaApi(client);
   });
 
-  it("createBase calls correct endpoint with body", async () => {
-    const spy = vi.spyOn(client, "request").mockResolvedValue({});
-    const body = { name: "New Base" };
-    await api.createBase(body);
-    expect(spy).toHaveBeenCalledWith("POST", "/api/v2/meta/bases", { body });
+  const testEndpoint = (name: string, method: string, path: string, fn: () => Promise<any>, body?: any) => {
+    it(`${name} calls correct endpoint`, async () => {
+      const spy = vi.spyOn(client, "request").mockResolvedValue({});
+      await fn();
+      if (body) {
+        expect(spy).toHaveBeenCalledWith(method, path, { body });
+      } else {
+        expect(spy).toHaveBeenCalledWith(method, path);
+      }
+    });
+  };
+
+  describe("Bases", () => {
+    testEndpoint("listBases", "GET", "/api/v2/meta/bases", () => api.listBases());
+    testEndpoint("createBase", "POST", "/api/v2/meta/bases", () => api.createBase({ name: "b" }), { name: "b" });
+    testEndpoint("getBase", "GET", "/api/v2/meta/bases/b1", () => api.getBase("b1"));
+    testEndpoint("getBaseInfo", "GET", "/api/v2/meta/bases/b1/info", () => api.getBaseInfo("b1"));
+    testEndpoint("updateBase", "PATCH", "/api/v2/meta/bases/b1", () => api.updateBase("b1", { title: "t" }), { title: "t" });
+    testEndpoint("deleteBase", "DELETE", "/api/v2/meta/bases/b1", () => api.deleteBase("b1"));
+    testEndpoint("getBaseSwagger", "GET", "/api/v2/meta/bases/b1/swagger.json", () => api.getBaseSwagger("b1"));
   });
 
-  it("getBase calls correct endpoint", async () => {
-    const spy = vi.spyOn(client, "request").mockResolvedValue({});
-    await api.getBase("b1");
-    expect(spy).toHaveBeenCalledWith("GET", "/api/v2/meta/bases/b1");
+  describe("Tables", () => {
+    testEndpoint("listTables", "GET", "/api/v2/meta/bases/b1/tables", () => api.listTables("b1"));
+    testEndpoint("createTable", "POST", "/api/v2/meta/bases/b1/tables", () => api.createTable("b1", { name: "t" }), { name: "t" });
+    testEndpoint("getTable", "GET", "/api/v2/meta/tables/t1", () => api.getTable("t1"));
+    testEndpoint("updateTable", "PATCH", "/api/v2/meta/tables/t1", () => api.updateTable("t1", { title: "t" }), { title: "t" });
+    testEndpoint("deleteTable", "DELETE", "/api/v2/meta/tables/t1", () => api.deleteTable("t1"));
   });
 
-  it("deleteBase calls correct endpoint", async () => {
-    const spy = vi.spyOn(client, "request").mockResolvedValue({});
-    await api.deleteBase("b1");
-    expect(spy).toHaveBeenCalledWith("DELETE", "/api/v2/meta/bases/b1");
+  describe("Views", () => {
+    testEndpoint("listViews", "GET", "/api/v2/meta/tables/t1/views", () => api.listViews("t1"));
+    testEndpoint("createView", "POST", "/api/v2/meta/tables/t1/views", () => api.createView("t1", { name: "v" }), { name: "v" });
+    testEndpoint("getView", "GET", "/api/v2/meta/views/v1", () => api.getView("v1"));
+    testEndpoint("updateView", "PATCH", "/api/v2/meta/views/v1", () => api.updateView("v1", { title: "t" }), { title: "t" });
+    testEndpoint("deleteView", "DELETE", "/api/v2/meta/views/v1", () => api.deleteView("v1"));
   });
 
-  it("listTables calls correct endpoint", async () => {
-    const spy = vi.spyOn(client, "request").mockResolvedValue([]);
-    await api.listTables("b1");
-    expect(spy).toHaveBeenCalledWith("GET", "/api/v2/meta/bases/b1/tables");
+  describe("Filters", () => {
+    testEndpoint("listViewFilters", "GET", "/api/v2/meta/views/v1/filters", () => api.listViewFilters("v1"));
+    testEndpoint("createViewFilter", "POST", "/api/v2/meta/views/v1/filters", () => api.createViewFilter("v1", { name: "f" }), { name: "f" });
+    testEndpoint("getFilter", "GET", "/api/v2/meta/filters/f1", () => api.getFilter("f1"));
+    testEndpoint("updateFilter", "PATCH", "/api/v2/meta/filters/f1", () => api.updateFilter("f1", { title: "t" }), { title: "t" });
+    testEndpoint("deleteFilter", "DELETE", "/api/v2/meta/filters/f1", () => api.deleteFilter("f1"));
   });
 
-  it("getTable calls correct endpoint", async () => {
-    const spy = vi.spyOn(client, "request").mockResolvedValue({});
-    await api.getTable("t1");
-    expect(spy).toHaveBeenCalledWith("GET", "/api/v2/meta/tables/t1");
+  describe("Sorts", () => {
+    testEndpoint("listViewSorts", "GET", "/api/v2/meta/views/v1/sorts", () => api.listViewSorts("v1"));
+    testEndpoint("createViewSort", "POST", "/api/v2/meta/views/v1/sorts", () => api.createViewSort("v1", { name: "s" }), { name: "s" });
+    testEndpoint("getSort", "GET", "/api/v2/meta/sorts/s1", () => api.getSort("s1"));
+    testEndpoint("updateSort", "PATCH", "/api/v2/meta/sorts/s1", () => api.updateSort("s1", { title: "t" }), { title: "t" });
+    testEndpoint("deleteSort", "DELETE", "/api/v2/meta/sorts/s1", () => api.deleteSort("s1"));
   });
 
-  it("listViews calls correct endpoint", async () => {
-    const spy = vi.spyOn(client, "request").mockResolvedValue([]);
-    await api.listViews("t1");
-    expect(spy).toHaveBeenCalledWith("GET", "/api/v2/meta/tables/t1/views");
-  });
-
-  it("listColumns calls correct endpoint", async () => {
-    const spy = vi.spyOn(client, "request").mockResolvedValue([]);
-    await api.listColumns("t1");
-    expect(spy).toHaveBeenCalledWith("GET", "/api/v2/meta/tables/t1/columns");
-  });
-
-  it("getBaseSwagger calls correct endpoint", async () => {
-    const spy = vi.spyOn(client, "request").mockResolvedValue({});
-    await api.getBaseSwagger("b1");
-    expect(spy).toHaveBeenCalledWith("GET", "/api/v2/meta/bases/b1/swagger.json");
+  describe("Columns", () => {
+    testEndpoint("listColumns", "GET", "/api/v2/meta/tables/t1/columns", () => api.listColumns("t1"));
+    testEndpoint("createColumn", "POST", "/api/v2/meta/tables/t1/columns", () => api.createColumn("t1", { name: "c" }), { name: "c" });
+    testEndpoint("getColumn", "GET", "/api/v2/meta/columns/c1", () => api.getColumn("c1"));
+    testEndpoint("updateColumn", "PATCH", "/api/v2/meta/columns/c1", () => api.updateColumn("c1", { title: "t" }), { title: "t" });
+    testEndpoint("deleteColumn", "DELETE", "/api/v2/meta/columns/c1", () => api.deleteColumn("c1"));
   });
 });
