@@ -1,0 +1,31 @@
+{
+  "title": "CliGenerated",
+  "table_name": "CliGenerated",
+  "columns": [
+    {
+      "column_name": "Title",
+      "uidt": "SingleLineText",
+      "title": "Title"
+    },
+    {
+      "column_name": "Notes",
+      "uidt": "LongText",
+      "title": "Notes"
+    },
+    {
+      "column_name": "Score",
+      "uidt": "Number",
+      "title": "Score"
+    },
+    {
+      "column_name": "Done",
+      "uidt": "Checkbox",
+      "title": "Done"
+    },
+    {
+      "column_name": "When",
+      "uidt": "Date",
+      "title": "When"
+    }
+  ]
+}

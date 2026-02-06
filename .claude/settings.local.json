@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:deepwiki.com)",
+      "WebSearch",
+      "WebFetch(domain:nocodb.com)",
+      "WebFetch(domain:docs.nocodb.com)",
+      "WebFetch(domain:all-apis.nocodb.com)",
+      "Bash(npm run build:*)"
+    ]
+  }
+}

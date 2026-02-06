@@ -1,0 +1,13 @@
+{
+  "name": "nocodb-cli",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "npm@10",
+  "scripts": {
+    "build": "npm --prefix packages/sdk run build && npm --prefix packages/cli run build",
+    "dev": "npm --prefix packages/cli run dev",
+    "lint": "npm --prefix packages/sdk run lint && npm --prefix packages/cli run lint",
+    "test": "npm --prefix packages/sdk run test && npm --prefix packages/cli run test",
+    "e2e": "node scripts/e2e-cli.mjs"
+  }
+}

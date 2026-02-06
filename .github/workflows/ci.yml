@@ -1,0 +1,25 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: |
+            package-lock.json
+            packages/sdk/package-lock.json
+            packages/cli/package-lock.json
+      - name: Install SDK deps
+        run: npm --prefix packages/sdk install
+      - name: Install CLI deps
+        run: npm --prefix packages/cli install
+      - name: Run tests
+        run: npm test
