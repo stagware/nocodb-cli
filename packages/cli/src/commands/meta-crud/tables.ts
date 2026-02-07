@@ -1,62 +1,138 @@
-import { resolveNamespacedAlias } from "../../aliases.js";
-import { addJsonInputOptions, addOutputOptions, withErrorHandler } from "../helpers.js";
-import type { MetaCrudDeps } from "./types.js";
+/**
+ * Tables command handlers for table management operations.
+ * 
+ * @module commands/meta-crud/tables
+ */
 
-export function registerTablesCommands({
-  program,
-  createMeta,
-  readJsonInput,
-  printResult,
-  handleError,
-  getActiveWorkspaceName,
-  getMultiConfig,
-}: MetaCrudDeps): void {
+import { Command } from "commander";
+import type { Container } from "../../container.js";
+import type { ConfigManager } from "../../config/manager.js";
+import type { MetaService } from "../../services/meta-service.js";
+import type { NocoClient } from "@nocodb/sdk";
+import { parseJsonInput } from "../../utils/parsing.js";
+import { addOutputOptions, addJsonInputOptions } from "../helpers.js";
+import {
+  printResult, handleError,
+  type OutputOptions, type JsonInputOptions,
+} from "../../utils/command-utils.js";
+
+export function registerTablesCommands(program: Command, container: Container): void {
   const tablesCmd = program.command("tables").description("Manage tables");
 
-  addOutputOptions(tablesCmd.command("list").argument("baseId", "Base id")).action(
-    withErrorHandler(handleError, async (baseId: string, options: { pretty?: boolean; format?: string }) => {
-      const meta = createMeta();
-      const resolved = resolveNamespacedAlias(baseId, getMultiConfig(), getActiveWorkspaceName());
-      const result = await meta.listTables(resolved.id);
-      printResult(result, options);
-    }),
+  // List tables command
+  addOutputOptions(tablesCmd.command("list").argument("baseId", "Base id or alias")).action(
+    async (baseId: string, options: OutputOptions) => {
+      try {
+        const configManager = container.get<ConfigManager>("configManager");
+        const createClient = container.get<Function>("createClient");
+        const metaServiceFactory = container.get<Function>("metaService");
+
+        const { id: resolvedBaseId, workspace } = configManager.resolveAlias(baseId);
+        const { workspace: effectiveWorkspace, settings } = configManager.getEffectiveConfig({});
+        const ws = workspace || effectiveWorkspace;
+
+        const client = createClient(ws, settings) as NocoClient;
+        const metaService = metaServiceFactory(client) as MetaService;
+
+        const result = await metaService.listTables(resolvedBaseId);
+        printResult(result, options);
+      } catch (err) {
+        handleError(err);
+      }
+    }
   );
 
-  addOutputOptions(tablesCmd.command("get").argument("tableId", "Table id")).action(
-    withErrorHandler(handleError, async (tableId: string, options: { pretty?: boolean; format?: string }) => {
-      const meta = createMeta();
-      const resolved = resolveNamespacedAlias(tableId, getMultiConfig(), getActiveWorkspaceName());
-      const result = await meta.getTable(resolved.id);
-      printResult(result, options);
-    }),
+  // Get table command
+  addOutputOptions(tablesCmd.command("get").argument("tableId", "Table id or alias")).action(
+    async (tableId: string, options: OutputOptions) => {
+      try {
+        const configManager = container.get<ConfigManager>("configManager");
+        const createClient = container.get<Function>("createClient");
+        const metaServiceFactory = container.get<Function>("metaService");
+
+        const { id: resolvedTableId, workspace } = configManager.resolveAlias(tableId);
+        const { workspace: effectiveWorkspace, settings } = configManager.getEffectiveConfig({});
+        const ws = workspace || effectiveWorkspace;
+
+        const client = createClient(ws, settings) as NocoClient;
+        const metaService = metaServiceFactory(client) as MetaService;
+
+        const result = await metaService.getTable(resolvedTableId);
+        printResult(result, options);
+      } catch (err) {
+        handleError(err);
+      }
+    }
   );
 
-  addOutputOptions(addJsonInputOptions(tablesCmd.command("create").argument("baseId", "Base id"))).action(
-    withErrorHandler(handleError, async (baseId: string, options: { data?: string; dataFile?: string; pretty?: boolean; format?: string }) => {
-      const meta = createMeta();
-      const body = await readJsonInput(options.data, options.dataFile);
-      const resolved = resolveNamespacedAlias(baseId, getMultiConfig(), getActiveWorkspaceName());
-      const result = await meta.createTable(resolved.id, body);
-      printResult(result, options);
-    }),
+  // Create table command
+  addOutputOptions(addJsonInputOptions(tablesCmd.command("create").argument("baseId", "Base id or alias"))).action(
+    async (baseId: string, options: JsonInputOptions & OutputOptions) => {
+      try {
+        const configManager = container.get<ConfigManager>("configManager");
+        const createClient = container.get<Function>("createClient");
+        const metaServiceFactory = container.get<Function>("metaService");
+
+        const { id: resolvedBaseId, workspace } = configManager.resolveAlias(baseId);
+        const { workspace: effectiveWorkspace, settings } = configManager.getEffectiveConfig({});
+        const ws = workspace || effectiveWorkspace;
+
+        const client = createClient(ws, settings) as NocoClient;
+        const metaService = metaServiceFactory(client) as MetaService;
+
+        const body = await parseJsonInput(options.data, options.dataFile);
+        const result = await metaService.createTable(resolvedBaseId, body);
+        printResult(result, options);
+      } catch (err) {
+        handleError(err);
+      }
+    }
   );
 
-  addOutputOptions(addJsonInputOptions(tablesCmd.command("update").argument("tableId", "Table id"))).action(
-    withErrorHandler(handleError, async (tableId: string, options: { data?: string; dataFile?: string; pretty?: boolean; format?: string }) => {
-      const meta = createMeta();
-      const body = await readJsonInput(options.data, options.dataFile);
-      const resolved = resolveNamespacedAlias(tableId, getMultiConfig(), getActiveWorkspaceName());
-      const result = await meta.updateTable(resolved.id, body);
-      printResult(result, options);
-    }),
+  // Update table command
+  addOutputOptions(addJsonInputOptions(tablesCmd.command("update").argument("tableId", "Table id or alias"))).action(
+    async (tableId: string, options: JsonInputOptions & OutputOptions) => {
+      try {
+        const configManager = container.get<ConfigManager>("configManager");
+        const createClient = container.get<Function>("createClient");
+        const metaServiceFactory = container.get<Function>("metaService");
+
+        const { id: resolvedTableId, workspace } = configManager.resolveAlias(tableId);
+        const { workspace: effectiveWorkspace, settings } = configManager.getEffectiveConfig({});
+        const ws = workspace || effectiveWorkspace;
+
+        const client = createClient(ws, settings) as NocoClient;
+        const metaService = metaServiceFactory(client) as MetaService;
+
+        const body = await parseJsonInput(options.data, options.dataFile);
+        const result = await metaService.updateTable(resolvedTableId, body);
+        printResult(result, options);
+      } catch (err) {
+        handleError(err);
+      }
+    }
   );
 
-  addOutputOptions(tablesCmd.command("delete").argument("tableId", "Table id")).action(
-    withErrorHandler(handleError, async (tableId: string, options: { pretty?: boolean; format?: string }) => {
-      const meta = createMeta();
-      const resolved = resolveNamespacedAlias(tableId, getMultiConfig(), getActiveWorkspaceName());
-      const result = await meta.deleteTable(resolved.id);
-      printResult(result, options);
-    }),
+  // Delete table command
+  addOutputOptions(tablesCmd.command("delete").argument("tableId", "Table id or alias")).action(
+    async (tableId: string, options: OutputOptions) => {
+      try {
+        const configManager = container.get<ConfigManager>("configManager");
+        const createClient = container.get<Function>("createClient");
+        const metaServiceFactory = container.get<Function>("metaService");
+
+        const { id: resolvedTableId, workspace } = configManager.resolveAlias(tableId);
+        const { workspace: effectiveWorkspace, settings } = configManager.getEffectiveConfig({});
+        const ws = workspace || effectiveWorkspace;
+
+        const client = createClient(ws, settings) as NocoClient;
+        const metaService = metaServiceFactory(client) as MetaService;
+
+        const result = await metaService.deleteTable(resolvedTableId);
+        printResult(result, options);
+      } catch (err) {
+        handleError(err);
+      }
+    }
   );
 }

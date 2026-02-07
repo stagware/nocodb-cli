@@ -1,121 +1,140 @@
+/**
+ * Links command handlers for managing linked records.
+ * 
+ * @module commands/links
+ */
+
 import { Command } from "commander";
-import { DataApi, NocoClient } from "@nocodb/sdk";
-import { resolveNamespacedAlias, type MultiConfig } from "../aliases.js";
-import { addJsonInputOptions, addOutputOptions, withErrorHandler } from "./helpers.js";
+import type { Container } from "../container.js";
+import type { ConfigManager } from "../config/manager.js";
+import type { LinkService } from "../services/link-service.js";
+import type { NocoClient } from "@nocodb/sdk";
+import { parseJsonInput } from "../utils/parsing.js";
+import { addOutputOptions, addJsonInputOptions } from "./helpers.js";
+import {
+  printResult, handleError, collect, parseQuery,
+  type OutputOptions, type JsonInputOptions,
+} from "../utils/command-utils.js";
 
-type PrintOptions = { pretty?: boolean; format?: string };
-
-export interface RegisterLinksCommandsDeps {
-  program: Command;
-  collect: (value: string, previous: string[]) => string[];
-  parseQuery: (items: string[]) => Record<string, string>;
-  readJsonInput: (data?: string, dataFile?: string) => Promise<unknown>;
-  printResult: (result: unknown, options?: PrintOptions | boolean) => void;
-  handleError: (err: unknown) => void;
-  clientOptionsFromSettings: () => {
-    timeoutMs: number;
-    retry: {
-      retry: number | false;
-      retryDelay: number;
-      retryStatusCodes: number[];
-    };
-  };
-  getBaseUrl: () => string;
-  getHeadersConfig: () => Record<string, string>;
-  getActiveWorkspaceName: () => string | undefined;
-  getMultiConfig: () => MultiConfig;
-}
-
-export function registerLinksCommands({
-  program,
-  collect,
-  parseQuery,
-  readJsonInput,
-  printResult,
-  handleError,
-  clientOptionsFromSettings,
-  getBaseUrl,
-  getHeadersConfig,
-  getActiveWorkspaceName,
-  getMultiConfig,
-}: RegisterLinksCommandsDeps): void {
+/**
+ * Registers links commands with the CLI program
+ * @param program - Commander program instance
+ * @param container - Dependency injection container
+ */
+export function registerLinksCommands(program: Command, container: Container): void {
   const linksCmd = program.command("links").description("Manage linked records");
 
+  // List links command
   addOutputOptions(
     linksCmd
       .command("list")
-      .argument("tableId", "Table id")
+      .argument("tableId", "Table id or alias")
       .argument("linkFieldId", "Link field id")
       .argument("recordId", "Record id")
-      .option("-q, --query <key=value>", "Query string parameter", collect, []),
-  ).action(withErrorHandler(handleError, async (
+      .option("-q, --query <key=value>", "Query string parameter", collect, [])
+  ).action(async (
     tableId: string,
     linkFieldId: string,
     recordId: string,
-    options: { query: string[]; pretty?: boolean; format?: string },
+    options: { query: string[] } & OutputOptions
   ) => {
-    const resolved = resolveNamespacedAlias(tableId, getMultiConfig(), getActiveWorkspaceName());
-    const resolvedTableId = resolved.id;
-    const client = new NocoClient({
-      baseUrl: resolved.workspace?.baseUrl ?? getBaseUrl(),
-      headers: resolved.workspace?.headers ?? getHeadersConfig(),
-      ...clientOptionsFromSettings(),
-    });
-    const data = new DataApi(client);
-    const query = parseQuery(options.query ?? []);
-    const result = await data.listLinks(resolvedTableId, linkFieldId, recordId, query);
-    printResult(result, options);
-  }));
+    try {
+      const configManager = container.get<ConfigManager>("configManager");
+      const createClient = container.get<Function>("createClient");
+      const linkServiceFactory = container.get<Function>("linkService");
 
-  addOutputOptions(addJsonInputOptions(
-    linksCmd
-      .command("create")
-      .argument("tableId", "Table id")
-      .argument("linkFieldId", "Link field id")
-      .argument("recordId", "Record id"),
-    "Request JSON body (array of {Id: ...})",
-  )).action(withErrorHandler(handleError, async (
-    tableId: string,
-    linkFieldId: string,
-    recordId: string,
-    options: { data?: string; dataFile?: string; pretty?: boolean; format?: string },
-  ) => {
-    const resolved = resolveNamespacedAlias(tableId, getMultiConfig(), getActiveWorkspaceName());
-    const resolvedTableId = resolved.id;
-    const client = new NocoClient({
-      baseUrl: resolved.workspace?.baseUrl ?? getBaseUrl(),
-      headers: resolved.workspace?.headers ?? getHeadersConfig(),
-      ...clientOptionsFromSettings(),
-    });
-    const data = new DataApi(client);
-    const body = await readJsonInput(options.data, options.dataFile);
-    const result = await data.linkRecords(resolvedTableId, linkFieldId, recordId, body);
-    printResult(result, options);
-  }));
+      const { id: resolvedTableId, workspace } = configManager.resolveAlias(tableId);
+      const { workspace: effectiveWorkspace, settings } = configManager.getEffectiveConfig({});
+      const ws = workspace || effectiveWorkspace;
 
-  addOutputOptions(addJsonInputOptions(
-    linksCmd
-      .command("delete")
-      .argument("tableId", "Table id")
-      .argument("linkFieldId", "Link field id")
-      .argument("recordId", "Record id"),
-    "Request JSON body (array of {Id: ...})",
-  )).action(withErrorHandler(handleError, async (
+      const client = createClient(ws, settings) as NocoClient;
+      const linkService = linkServiceFactory(client) as LinkService;
+
+      const query = parseQuery(options.query || []);
+      const result = await linkService.list(
+        resolvedTableId,
+        linkFieldId,
+        recordId,
+        Object.keys(query).length ? query : undefined
+      );
+
+      printResult(result, options);
+    } catch (err) {
+      handleError(err);
+    }
+  });
+
+  // Create links command
+  addOutputOptions(
+    addJsonInputOptions(
+      linksCmd
+        .command("create")
+        .argument("tableId", "Table id or alias")
+        .argument("linkFieldId", "Link field id")
+        .argument("recordId", "Record id"),
+      "Request JSON body (array of {Id: ...})"
+    )
+  ).action(async (
     tableId: string,
     linkFieldId: string,
     recordId: string,
-    options: { data?: string; dataFile?: string; pretty?: boolean; format?: string },
+    options: JsonInputOptions & OutputOptions
   ) => {
-    const resolved = resolveNamespacedAlias(tableId, getMultiConfig(), getActiveWorkspaceName());
-    const resolvedTableId = resolved.id;
-    const client = new NocoClient({
-      baseUrl: resolved.workspace?.baseUrl ?? getBaseUrl(),
-      headers: resolved.workspace?.headers ?? getHeadersConfig(),
-      ...clientOptionsFromSettings(),
-    });
-    const data = new DataApi(client);
-    const body = await readJsonInput(options.data, options.dataFile);
-    const result = await data.unlinkRecords(resolvedTableId, linkFieldId, recordId, body);
-    printResult(result, options);
-  }));
+    try {
+      const configManager = container.get<ConfigManager>("configManager");
+      const createClient = container.get<Function>("createClient");
+      const linkServiceFactory = container.get<Function>("linkService");
+
+      const { id: resolvedTableId, workspace } = configManager.resolveAlias(tableId);
+      const { workspace: effectiveWorkspace, settings } = configManager.getEffectiveConfig({});
+      const ws = workspace || effectiveWorkspace;
+
+      const client = createClient(ws, settings) as NocoClient;
+      const linkService = linkServiceFactory(client) as LinkService;
+
+      const body = await parseJsonInput(options.data, options.dataFile);
+      const result = await linkService.link(resolvedTableId, linkFieldId, recordId, body);
+
+      printResult(result, options);
+    } catch (err) {
+      handleError(err);
+    }
+  });
+
+  // Delete links command
+  addOutputOptions(
+    addJsonInputOptions(
+      linksCmd
+        .command("delete")
+        .argument("tableId", "Table id or alias")
+        .argument("linkFieldId", "Link field id")
+        .argument("recordId", "Record id"),
+      "Request JSON body (array of {Id: ...})"
+    )
+  ).action(async (
+    tableId: string,
+    linkFieldId: string,
+    recordId: string,
+    options: JsonInputOptions & OutputOptions
+  ) => {
+    try {
+      const configManager = container.get<ConfigManager>("configManager");
+      const createClient = container.get<Function>("createClient");
+      const linkServiceFactory = container.get<Function>("linkService");
+
+      const { id: resolvedTableId, workspace } = configManager.resolveAlias(tableId);
+      const { workspace: effectiveWorkspace, settings } = configManager.getEffectiveConfig({});
+      const ws = workspace || effectiveWorkspace;
+
+      const client = createClient(ws, settings) as NocoClient;
+      const linkService = linkServiceFactory(client) as LinkService;
+
+      const body = await parseJsonInput(options.data, options.dataFile);
+      const result = await linkService.unlink(resolvedTableId, linkFieldId, recordId, body);
+
+      printResult(result, options);
+    } catch (err) {
+      handleError(err);
+    }
+  });
 }

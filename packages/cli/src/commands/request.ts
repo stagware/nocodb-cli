@@ -1,38 +1,21 @@
 import { Command } from "commander";
 import { NocoClient, parseHeader } from "@nocodb/sdk";
 import { parseKeyValue } from "../lib.js";
-import { addJsonInputOptions, addOutputOptions, withErrorHandler } from "./helpers.js";
+import { addJsonInputOptions, addOutputOptions } from "./helpers.js";
+import { formatError, getExitCode } from "../utils/error-handling.js";
+import type { Container } from "../container.js";
+import type { ConfigManager } from "../config/manager.js";
+import type { WorkspaceConfig, GlobalSettings } from "../config/types.js";
 
-type PrintOptions = { pretty?: boolean; format?: string };
+/**
+ * Registers the raw request command with the CLI program
+ * @param program - Commander program instance
+ * @param container - Dependency injection container
+ */
+export function registerRequestCommand(program: Command, container: Container): void {
+  const configManager = container.get<ConfigManager>("configManager");
+  const createClient = container.get<(workspace?: WorkspaceConfig, settings?: GlobalSettings) => NocoClient>("createClient");
 
-export interface RegisterRequestCommandDeps {
-  program: Command;
-  collect: (value: string, previous: string[]) => string[];
-  readJsonFile: (path: string) => Promise<unknown>;
-  getBaseUrl: () => string;
-  getHeadersConfig: () => Record<string, string>;
-  clientOptionsFromSettings: () => {
-    timeoutMs: number;
-    retry: {
-      retry: number | false;
-      retryDelay: number;
-      retryStatusCodes: number[];
-    };
-  };
-  printResult: (result: unknown, options?: PrintOptions | boolean) => void;
-  handleError: (err: unknown) => void;
-}
-
-export function registerRequestCommand({
-  program,
-  collect,
-  readJsonFile,
-  getBaseUrl,
-  getHeadersConfig,
-  clientOptionsFromSettings,
-  printResult,
-  handleError,
-}: RegisterRequestCommandDeps): void {
   const requestCmd = program
     .command("request")
     .description("Make a raw API request")
@@ -42,7 +25,7 @@ export function registerRequestCommand({
     .option("-H, --header <name: value>", "Request header", collect, []);
 
   addOutputOptions(addJsonInputOptions(requestCmd)).action(
-    withErrorHandler(handleError, async (method: string, path: string, options: {
+    async (method: string, path: string, options: {
       query: string[];
       header: string[];
       data?: string;
@@ -50,36 +33,49 @@ export function registerRequestCommand({
       pretty?: boolean;
       format?: string;
     }) => {
-      const baseUrl = getBaseUrl();
-      const headers = getHeadersConfig();
-      const client = new NocoClient({ baseUrl, headers, ...clientOptionsFromSettings() });
+      try {
+        const query: Record<string, string> = {};
+        for (const item of options.query) {
+          const [key, value] = parseKeyValue(item);
+          query[key] = value;
+        }
 
-      const query: Record<string, string> = {};
-      for (const item of options.query ?? []) {
-        const [key, value] = parseKeyValue(item);
-        query[key] = value;
+        const headers: Record<string, string> = {};
+        for (const item of options.header) {
+          const [key, value] = parseHeader(item);
+          headers[key] = value;
+        }
+
+        let body: unknown = undefined;
+        if (options.data) {
+          body = JSON.parse(options.data);
+        } else if (options.dataFile) {
+          const raw = await import("node:fs/promises").then(fs => fs.readFile(options.dataFile!, "utf8"));
+          body = JSON.parse(raw);
+        }
+
+        const client = createClient();
+        const result = await client.request(
+          method.toUpperCase(),
+          path,
+          {
+            query,
+            headers,
+            body,
+          }
+        );
+
+        if (process.env.NOCO_QUIET !== "1") {
+          console.log(JSON.stringify(result, null, options.pretty ? 2 : 0));
+        }
+      } catch (err) {
+        console.error(formatError(err, false));
+        process.exit(getExitCode(err));
       }
-
-      const requestHeaders: Record<string, string> = {};
-      for (const item of options.header ?? []) {
-        const [name, value] = parseHeader(item);
-        requestHeaders[name] = value;
-      }
-
-      let body: unknown;
-      if (options.dataFile) {
-        body = await readJsonFile(options.dataFile);
-      } else if (options.data) {
-        body = JSON.parse(options.data);
-      }
-
-      const result = await client.request<unknown>(method, path, {
-        query: Object.keys(query).length ? query : undefined,
-        headers: Object.keys(requestHeaders).length ? requestHeaders : undefined,
-        body,
-      });
-
-      printResult(result, options);
-    }),
+    },
   );
+}
+
+function collect(value: string, previous: string[]): string[] {
+  return previous.concat([value]);
 }

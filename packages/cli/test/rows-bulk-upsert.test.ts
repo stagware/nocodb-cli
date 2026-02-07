@@ -6,6 +6,14 @@ import { NocoClient } from "@nocodb/sdk";
 
 vi.mock("@nocodb/sdk", () => {
   const request = vi.fn();
+  
+  class ValidationError extends Error {
+    constructor(message: string, public fieldErrors?: Record<string, string[]>) {
+      super(message);
+      this.name = "ValidationError";
+    }
+  }
+  
   return {
     NocoClient: vi.fn().mockImplementation(() => ({
       request,
@@ -20,6 +28,7 @@ vi.mock("@nocodb/sdk", () => {
         },
       }),
     })),
+    ValidationError,
   };
 });
 

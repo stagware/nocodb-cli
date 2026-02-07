@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createConfig } from "../src/config.js";
+import { ConfigManager } from "../src/config/manager.js";
 
 const tempDirs: string[] = [];
 
@@ -33,15 +33,25 @@ describe("cli command parsing", () => {
     const dir = makeConfigDir();
     await runCli(["config", "set", "baseUrl", "http://example.test"], dir);
     await runCli(["config", "set", "baseId", "base-123"], dir);
-    const config = createConfig(dir);
-    expect(config.get("baseUrl")).toBe("http://example.test");
-    expect(config.get("baseId")).toBe("base-123");
+    
+    // Check using ConfigManager (unified config)
+    process.env.NOCO_CONFIG_DIR = dir;
+    const configManager = new ConfigManager();
+    const ws = configManager.getWorkspace("default");
+    expect(ws?.baseUrl).toBe("http://example.test");
+    expect(ws?.baseId).toBe("base-123");
   });
 
   it("sets headers", async () => {
     const dir = makeConfigDir();
+    // Set baseUrl first (required for workspace)
+    await runCli(["config", "set", "baseUrl", "http://example.test"], dir);
     await runCli(["header", "set", "xc-token", "secret"], dir);
-    const config = createConfig(dir);
-    expect(config.get("headers")).toEqual({ "xc-token": "secret" });
+    
+    // Check using ConfigManager (unified config)
+    process.env.NOCO_CONFIG_DIR = dir;
+    const configManager = new ConfigManager();
+    const ws = configManager.getWorkspace("default");
+    expect(ws?.headers).toEqual({ "xc-token": "secret" });
   });
 });

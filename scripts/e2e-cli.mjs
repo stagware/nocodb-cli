@@ -58,6 +58,12 @@ function jsonParseOrThrow(raw) {
   }
 }
 
+function assert(condition, message) {
+  if (!condition) {
+    throw new Error(`Assertion failed: ${message}`);
+  }
+}
+
 function writeJson(filePath, data) {
   fs.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf8");
 }
@@ -75,6 +81,7 @@ function column(colName, uidt) {
 }
 
 function tryCreateTable(baseId, name, columnSets) {
+  const errors = [];
   for (const columns of columnSets) {
     const payload = tablePayload(name, columns);
     const tmp = path.join(ROOT, "scripts", `${name}.json`);
@@ -83,10 +90,11 @@ function tryCreateTable(baseId, name, columnSets) {
       const out = runCli(["tables", "create", baseId, "--data-file", tmp, "--pretty"]);
       return jsonParseOrThrow(out);
     } catch (err) {
+      errors.push(err.message || String(err));
       // try next column set
     }
   }
-  throw new Error(`Failed to create table ${name} with provided column sets.`);
+  throw new Error(`Failed to create table ${name} with provided column sets.\nErrors:\n${errors.join("\n")}`);
 }
 
 function createRow(tableId, data) {
@@ -227,6 +235,257 @@ function createRowViaDynamic(baseId, tag, operationId, payload) {
   return jsonParseOrThrow(out);
 }
 
+// --- Upsert helpers ---
+function upsertRow(tableId, matchField, matchValue, data, extraFlags = []) {
+  const tmp = path.join(ROOT, "scripts", `${tableId}-upsert.json`);
+  writeJson(tmp, data);
+  const out = runCli([
+    "--base", BASE_ID,
+    "rows", "upsert", tableId,
+    "--match", `${matchField}=${matchValue}`,
+    "--data-file", tmp,
+    ...extraFlags,
+  ]);
+  return jsonParseOrThrow(out);
+}
+
+function upsertRowAllowFail(tableId, matchField, matchValue, data, extraFlags = []) {
+  const tmp = path.join(ROOT, "scripts", `${tableId}-upsert-af.json`);
+  writeJson(tmp, data);
+  return runCliAllowFail([
+    "--base", BASE_ID,
+    "rows", "upsert", tableId,
+    "--match", `${matchField}=${matchValue}`,
+    "--data-file", tmp,
+    ...extraFlags,
+  ]);
+}
+
+// --- Bulk helpers ---
+function bulkCreateRows(tableId, rows, extraFlags = []) {
+  const tmp = path.join(ROOT, "scripts", `${tableId}-bulk-create.json`);
+  writeJson(tmp, rows);
+  const out = runCli(["--base", BASE_ID, "rows", "bulk-create", tableId, "--data-file", tmp, "--fail-fast", ...extraFlags]);
+  return jsonParseOrThrow(out);
+}
+
+function bulkUpdateRows(tableId, rows, extraFlags = []) {
+  const tmp = path.join(ROOT, "scripts", `${tableId}-bulk-update.json`);
+  writeJson(tmp, rows);
+  const out = runCli(["--base", BASE_ID, "rows", "bulk-update", tableId, "--data-file", tmp, "--fail-fast", ...extraFlags]);
+  return jsonParseOrThrow(out);
+}
+
+function bulkDeleteRows(tableId, rows, extraFlags = []) {
+  const tmp = path.join(ROOT, "scripts", `${tableId}-bulk-delete.json`);
+  writeJson(tmp, rows);
+  const out = runCli(["--base", BASE_ID, "rows", "bulk-delete", tableId, "--data-file", tmp, "--fail-fast", ...extraFlags]);
+  return jsonParseOrThrow(out);
+}
+
+function bulkUpsertRows(tableId, matchField, rows, extraFlags = []) {
+  const tmp = path.join(ROOT, "scripts", `${tableId}-bulk-upsert.json`);
+  writeJson(tmp, rows);
+  const out = runCli([
+    "--base", BASE_ID,
+    "rows", "bulk-upsert", tableId,
+    "--match", matchField,
+    "--data-file", tmp,
+    ...extraFlags,
+  ]);
+  return jsonParseOrThrow(out);
+}
+
+// --- Views helpers ---
+function listViews(tableId) {
+  const out = runCli(["views", "list", tableId, "--pretty"]);
+  return jsonParseOrThrow(out);
+}
+
+function createView(tableId, data) {
+  const tmp = path.join(ROOT, "scripts", `${tableId}-view.json`);
+  writeJson(tmp, data);
+  const out = runCli(["views", "create", tableId, "--data-file", tmp, "--pretty"]);
+  return jsonParseOrThrow(out);
+}
+
+function getView(viewId) {
+  const out = runCli(["views", "get", viewId, "--pretty"]);
+  return jsonParseOrThrow(out);
+}
+
+function updateView(viewId, data) {
+  const tmp = path.join(ROOT, "scripts", `${viewId}-view-update.json`);
+  writeJson(tmp, data);
+  const out = runCli(["views", "update", viewId, "--data-file", tmp, "--pretty"]);
+  return jsonParseOrThrow(out);
+}
+
+function deleteView(viewId) {
+  return runCliAllowFail(["views", "delete", viewId]);
+}
+
+// --- Filters helpers ---
+function listFilters(viewId) {
+  const out = runCli(["filters", "list", viewId, "--pretty"]);
+  return jsonParseOrThrow(out);
+}
+
+function createFilter(viewId, data) {
+  const tmp = path.join(ROOT, "scripts", `${viewId}-filter.json`);
+  writeJson(tmp, data);
+  const out = runCli(["filters", "create", viewId, "--data-file", tmp, "--pretty"]);
+  return jsonParseOrThrow(out);
+}
+
+function getFilter(filterId) {
+  const out = runCli(["filters", "get", filterId, "--pretty"]);
+  return jsonParseOrThrow(out);
+}
+
+function updateFilter(filterId, data) {
+  const tmp = path.join(ROOT, "scripts", `${filterId}-filter-update.json`);
+  writeJson(tmp, data);
+  const out = runCli(["filters", "update", filterId, "--data-file", tmp, "--pretty"]);
+  return jsonParseOrThrow(out);
+}
+
+function deleteFilter(filterId) {
+  return runCliAllowFail(["filters", "delete", filterId]);
+}
+
+// --- Sorts helpers ---
+function listSorts(viewId) {
+  const out = runCli(["sorts", "list", viewId, "--pretty"]);
+  return jsonParseOrThrow(out);
+}
+
+function createSort(viewId, data) {
+  const tmp = path.join(ROOT, "scripts", `${viewId}-sort.json`);
+  writeJson(tmp, data);
+  const out = runCli(["sorts", "create", viewId, "--data-file", tmp, "--pretty"]);
+  return jsonParseOrThrow(out);
+}
+
+function getSort(sortId) {
+  const out = runCli(["sorts", "get", sortId, "--pretty"]);
+  return jsonParseOrThrow(out);
+}
+
+function updateSort(sortId, data) {
+  const tmp = path.join(ROOT, "scripts", `${sortId}-sort-update.json`);
+  writeJson(tmp, data);
+  const out = runCli(["sorts", "update", sortId, "--data-file", tmp, "--pretty"]);
+  return jsonParseOrThrow(out);
+}
+
+function deleteSort(sortId) {
+  return runCliAllowFail(["sorts", "delete", sortId]);
+}
+
+// --- Bases helpers ---
+function listBases() {
+  const out = runCli(["bases", "list", "--pretty"]);
+  return jsonParseOrThrow(out);
+}
+
+function getBase(baseId) {
+  const out = runCli(["bases", "get", baseId, "--pretty"]);
+  return jsonParseOrThrow(out);
+}
+
+function getBaseInfo(baseId) {
+  const out = runCli(["bases", "info", baseId, "--pretty"]);
+  return jsonParseOrThrow(out);
+}
+
+// --- Tables list/update helpers ---
+function listTables(baseId) {
+  const out = runCli(["tables", "list", baseId, "--pretty"]);
+  return jsonParseOrThrow(out);
+}
+
+function updateTable(tableId, data) {
+  const tmp = path.join(ROOT, "scripts", `${tableId}-table-update.json`);
+  writeJson(tmp, data);
+  const out = runCli(["tables", "update", tableId, "--data-file", tmp, "--pretty"]);
+  return jsonParseOrThrow(out);
+}
+
+// --- Request helper ---
+function rawRequest(method, apiPath, opts = {}) {
+  const args = ["request", method, apiPath];
+  if (opts.query) {
+    for (const [k, v] of Object.entries(opts.query)) {
+      args.push("--query", `${k}=${v}`);
+    }
+  }
+  if (opts.headers) {
+    for (const [k, v] of Object.entries(opts.headers)) {
+      args.push("--header", `${k}: ${v}`);
+    }
+  }
+  if (opts.data) {
+    args.push("--data", JSON.stringify(opts.data));
+  }
+  args.push("--pretty");
+  const out = runCli(args);
+  return jsonParseOrThrow(out);
+}
+
+// --- Meta endpoints helper ---
+function metaEndpoints(baseId) {
+  const out = runCli(["meta", "endpoints", baseId, "--pretty"]);
+  return jsonParseOrThrow(out);
+}
+
+// --- Storage upload helper ---
+function storageUpload(filePath) {
+  const out = runCli(["storage", "upload", filePath, "--pretty"]);
+  return jsonParseOrThrow(out);
+}
+
+// --- Workspace/Alias helpers ---
+function workspaceAdd(name, url, token, baseId) {
+  const args = ["workspace", "add", name, url, token];
+  if (baseId) args.push("--base", baseId);
+  return runCli(args);
+}
+
+function workspaceUse(name) {
+  return runCli(["workspace", "use", name]);
+}
+
+function workspaceList() {
+  return runCli(["workspace", "list"]);
+}
+
+function workspaceShow(name) {
+  const args = ["workspace", "show"];
+  if (name) args.push(name);
+  return runCli(args);
+}
+
+function workspaceDelete(name) {
+  return runCli(["workspace", "delete", name]);
+}
+
+function aliasSet(name, id) {
+  return runCli(["alias", "set", name, id]);
+}
+
+function aliasList() {
+  return runCli(["alias", "list"]);
+}
+
+function aliasDelete(name) {
+  return runCli(["alias", "delete", name]);
+}
+
+function aliasClear() {
+  return runCli(["alias", "clear"]);
+}
+
 function slugify(value) {
   return value
     .toLowerCase()
@@ -262,6 +521,9 @@ function writeReportMarkdown(report) {
     lines.push(`## Summary`);
     lines.push(`- Columns: ${report.summary.columns.passed} passed, ${report.summary.columns.failed} failed, ${report.summary.columns.skipped} skipped`);
     lines.push(`- Links: ${report.summary.links.passed} passed, ${report.summary.links.failed} failed`);
+    if (report.summary.features) {
+      lines.push(`- Features: ${report.summary.features.passed} passed, ${report.summary.features.failed} failed, ${report.summary.features.skipped} skipped`);
+    }
     lines.push(``);
   }
   lines.push(`## Tables`);
@@ -287,39 +549,28 @@ function writeReportMarkdown(report) {
     }
   }
   lines.push(``);
+  lines.push(`## Feature Tests`);
+  const featureKeys = [
+    "workspace", "bases", "tablesExtra", "views", "filters", "sorts",
+    "upsert", "bulkOps", "bulkUpsert", "request", "metaEndpoints",
+    "dynamicApi", "storageUpload",
+  ];
+  for (const key of featureKeys) {
+    const result = report[key];
+    if (!result) {
+      lines.push(`- SKIPPED: ${key}`);
+    } else {
+      const status = result.status.toUpperCase();
+      const err = result.error ? ` - ${result.error}` : "";
+      lines.push(`- ${status}: ${key}${err}`);
+    }
+  }
+  lines.push(``);
   fs.writeFileSync(mdPath, lines.join("\n"), "utf8");
   console.log(`Report written to ${mdPath}`);
 }
 
-async function uploadAttachment(filePath) {
-  const boundary = `----nocodbcli-${Date.now()}`;
-  const fileName = path.basename(filePath);
-  const fileContent = fs.readFileSync(filePath);
-  const header =
-    `--${boundary}\r\n` +
-    `Content-Disposition: form-data; name="file"; filename="${fileName}"\r\n` +
-    "Content-Type: application/octet-stream\r\n\r\n";
-  const footer = `\r\n--${boundary}--\r\n`;
-  const body = Buffer.concat([Buffer.from(header, "utf8"), fileContent, Buffer.from(footer, "utf8")]);
-
-  const res = await fetch(`${BASE_URL}/api/v2/storage/upload`, {
-    method: "POST",
-    headers: {
-      "xc-token": TOKEN,
-      "content-type": `multipart/form-data; boundary=${boundary}`,
-    },
-    body,
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Attachment upload failed: ${res.status} ${text}`);
-  }
-
-  return res.json();
-}
-
-async function attemptColumnTest(tableId, rowId, columnDef, sampleValue, report) {
+function attemptColumnTest(tableId, rowId, columnDef, sampleValue, report) {
 
   let createDef = columnDef;
   if ((columnDef.uidt === "SingleSelect" || columnDef.uidt === "MultiSelect") && columnDef.options) {
@@ -345,7 +596,7 @@ async function attemptColumnTest(tableId, rowId, columnDef, sampleValue, report)
     if (columnDef.uidt === "Attachment") {
       const tmpFile = path.join(ROOT, "scripts", `attachment-${Date.now()}.txt`);
       fs.writeFileSync(tmpFile, "nocodb-cli attachment", "utf8");
-      const uploads = await uploadAttachment(tmpFile);
+      const uploads = storageUpload(tmpFile);
       if (!Array.isArray(uploads) || uploads.length === 0) {
         throw new Error("Attachment upload returned no files.");
       }
@@ -459,6 +710,8 @@ async function main() {
   runCli(["config", "set", "baseUrl", BASE_URL]);
   runCli(["config", "set", "baseId", BASE_ID]);
   runCli(["header", "set", "xc-token", TOKEN]);
+  // Ensure 'default' workspace is active (config set only activates on first create)
+  runCli(["workspace", "use", "default"]);
 
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
   const tableA = `CliE2E_Primary_${timestamp}`;
@@ -694,7 +947,347 @@ async function main() {
   ];
 
   for (const entry of typeMatrix) {
-    await attemptColumnTest(typeTable.id, typeRow.Id, entry.def, entry.value, report);
+    attemptColumnTest(typeTable.id, typeRow.Id, entry.def, entry.value, report);
+  }
+
+  // =========================================================================
+  // NEW: Workspace & Alias tests
+  // =========================================================================
+  console.log("Testing workspace & alias commands...");
+  try {
+    workspaceAdd("e2e-ws", BASE_URL, TOKEN, BASE_ID);
+    workspaceUse("e2e-ws");
+    const wsList = workspaceList();
+    assert(wsList.includes("e2e-ws"), "workspace list should contain e2e-ws");
+    const wsShow = workspaceShow("e2e-ws");
+    assert(wsShow.includes(BASE_URL), "workspace show should contain base URL");
+    aliasSet("primary", primary.id);
+    aliasSet("secondary", secondary.id);
+    const aList = aliasList();
+    assert(aList.includes("primary"), "alias list should contain primary");
+    assert(aList.includes(primary.id), "alias list should contain primary table id");
+    // Verify alias resolves: list rows via alias
+    const aliasRows = listRows("primary");
+    assert(aliasRows.list !== undefined, "alias-resolved rows list should work");
+    aliasDelete("secondary");
+    const aList2 = aliasList();
+    assert(!aList2.includes("secondary"), "alias list should not contain deleted alias");
+    aliasClear();
+    // Delete the test workspace first so activeWorkspace is cleared
+    workspaceDelete("e2e-ws");
+    // Restore default config and re-activate it
+    runCli(["config", "set", "baseUrl", BASE_URL]);
+    runCli(["config", "set", "baseId", BASE_ID]);
+    runCli(["header", "set", "xc-token", TOKEN]);
+    runCli(["workspace", "use", "default"]);
+    report.workspace = { status: "passed" };
+  } catch (err) {
+    report.workspace = { status: "failed", error: err.message || String(err) };
+    // Restore config in case of failure
+    try { workspaceDelete("e2e-ws"); } catch { /* ignore */ }
+    try {
+      runCli(["config", "set", "baseUrl", BASE_URL]);
+      runCli(["config", "set", "baseId", BASE_ID]);
+      runCli(["header", "set", "xc-token", TOKEN]);
+      runCli(["workspace", "use", "default"]);
+    } catch { /* ignore */ }
+    console.log("Workspace/alias tests failed:", report.workspace.error);
+  }
+
+  // =========================================================================
+  // NEW: Bases CRUD tests
+  // =========================================================================
+  console.log("Testing bases list/get/info...");
+  try {
+    const bases = listBases();
+    assert(bases.list && bases.list.length > 0, "bases list should return at least one base");
+    const base = getBase(BASE_ID);
+    assert(base.id === BASE_ID, "bases get should return the correct base");
+    const info = getBaseInfo(BASE_ID);
+    assert(info !== undefined, "bases info should return something");
+    report.bases = { status: "passed" };
+  } catch (err) {
+    report.bases = { status: "failed", error: err.message || String(err) };
+    console.log("Bases tests failed:", report.bases.error);
+  }
+
+  // =========================================================================
+  // NEW: Tables list/update tests
+  // =========================================================================
+  console.log("Testing tables list/update...");
+  try {
+    const tables = listTables(BASE_ID);
+    assert(tables.list && tables.list.length > 0, "tables list should return tables");
+    const renamedTitle = `${tableA}_Renamed`;
+    const updated = updateTable(primary.id, { title: renamedTitle, table_name: renamedTitle });
+    assert(updated !== undefined, "tables update should succeed");
+    // Rename back
+    updateTable(primary.id, { title: tableA, table_name: tableA });
+    report.tablesExtra = { status: "passed" };
+  } catch (err) {
+    report.tablesExtra = { status: "failed", error: err.message || String(err) };
+    console.log("Tables list/update tests failed:", report.tablesExtra.error);
+  }
+
+  // =========================================================================
+  // NEW: Views CRUD tests
+  // =========================================================================
+  console.log("Testing views CRUD...");
+  let testViewId;
+  try {
+    const views = listViews(primary.id);
+    assert(views.list !== undefined, "views list should return a list");
+    assert(views.list.length > 0, "views list should have at least the default view");
+    // Create a grid view (views create defaults to grid type)
+    const viewTitle = `E2E_GridView_${timestamp}`;
+    const newView = createView(primary.id, { title: viewTitle });
+    testViewId = newView.id;
+    assert(testViewId, "views create should return an id");
+    // Verify it appears in the list
+    const viewsAfter = listViews(primary.id);
+    const found = (viewsAfter.list || []).find((v) => v.id === testViewId);
+    assert(found, "created view should appear in views list");
+    // Update the view
+    const renamedTitle = `${viewTitle}_Renamed`;
+    const updatedView = updateView(testViewId, { title: renamedTitle });
+    assert(updatedView !== undefined, "views update should succeed");
+    report.views = { status: "passed" };
+  } catch (err) {
+    // Fall back to using the default view for filter/sort tests
+    if (!testViewId) {
+      try {
+        const views = listViews(primary.id);
+        testViewId = views.list?.[0]?.id;
+      } catch { /* ignore */ }
+    }
+    report.views = { status: "failed", error: err.message || String(err) };
+    console.log("Views tests failed:", report.views.error);
+  }
+
+  // =========================================================================
+  // NEW: Filters CRUD tests
+  // =========================================================================
+  console.log("Testing filters CRUD...");
+  let testFilterId;
+  try {
+    if (!testViewId) throw new Error("No view available for filter tests");
+    // Get a column id for the filter
+    const tMeta = fetchTableMeta(primary.id);
+    const titleCol = findColumnByTitle(tMeta, "Title");
+    if (!titleCol?.id) throw new Error("No Title column found for filter test");
+    const filters = listFilters(testViewId);
+    assert(filters.list !== undefined, "filters list should return a list");
+    const newFilter = createFilter(testViewId, {
+      fk_column_id: titleCol.id,
+      comparison_op: "eq",
+      value: "test",
+    });
+    testFilterId = newFilter.id;
+    assert(testFilterId, "filters create should return an id");
+    const filterDetail = getFilter(testFilterId);
+    assert(filterDetail.id === testFilterId, "filters get should return correct filter");
+    updateFilter(testFilterId, { value: "updated" });
+    deleteFilter(testFilterId);
+    testFilterId = undefined;
+    report.filters = { status: "passed" };
+  } catch (err) {
+    report.filters = { status: "failed", error: err.message || String(err) };
+    console.log("Filters tests failed:", report.filters.error);
+  }
+
+  // =========================================================================
+  // NEW: Sorts CRUD tests
+  // =========================================================================
+  console.log("Testing sorts CRUD...");
+  let testSortId;
+  try {
+    if (!testViewId) throw new Error("No view available for sort tests");
+    const tMeta = fetchTableMeta(primary.id);
+    const titleCol = findColumnByTitle(tMeta, "Title");
+    if (!titleCol?.id) throw new Error("No Title column found for sort test");
+    const sorts = listSorts(testViewId);
+    assert(sorts.list !== undefined, "sorts list should return a list");
+    const newSort = createSort(testViewId, {
+      fk_column_id: titleCol.id,
+      direction: "asc",
+    });
+    testSortId = newSort.id;
+    assert(testSortId, "sorts create should return an id");
+    const sortDetail = getSort(testSortId);
+    assert(sortDetail.id === testSortId, "sorts get should return correct sort");
+    updateSort(testSortId, { direction: "desc" });
+    deleteSort(testSortId);
+    testSortId = undefined;
+    report.sorts = { status: "passed" };
+  } catch (err) {
+    report.sorts = { status: "failed", error: err.message || String(err) };
+    console.log("Sorts tests failed:", report.sorts.error);
+  }
+
+  // Clean up test view
+  if (testViewId) {
+    try { deleteView(testViewId); } catch { /* ignore */ }
+  }
+
+  // =========================================================================
+  // NEW: Upsert tests (single row)
+  // =========================================================================
+  console.log("Testing rows upsert...");
+  try {
+    // Upsert create: no match -> creates
+    const upserted = upsertRow(primary.id, "Title", "UpsertNew", { Title: "UpsertNew", Score: 10 });
+    assert(upserted.Id !== undefined, "upsert create should return an Id");
+    // Upsert update: match exists -> updates
+    const updated = upsertRow(primary.id, "Title", "UpsertNew", { Title: "UpsertNew", Score: 20 });
+    assert(updated.Id === upserted.Id, "upsert update should return same Id");
+    const readBack = readRow(primary.id, upserted.Id);
+    assert(readBack.Score === 20 || String(readBack.Score) === "20", "upsert should have updated Score");
+    // --create-only should fail when match exists
+    const coFail = upsertRowAllowFail(primary.id, "Title", "UpsertNew", { Title: "UpsertNew", Score: 30 }, ["--create-only"]);
+    assert(coFail.status !== 0, "upsert --create-only should fail when match exists");
+    // --update-only should fail when no match
+    const uoFail = upsertRowAllowFail(primary.id, "Title", "NoSuchRow999", { Title: "NoSuchRow999", Score: 1 }, ["--update-only"]);
+    assert(uoFail.status !== 0, "upsert --update-only should fail when no match");
+    // Cleanup
+    deleteRow(primary.id, { Id: upserted.Id });
+    report.upsert = { status: "passed" };
+  } catch (err) {
+    report.upsert = { status: "failed", error: err.message || String(err) };
+    console.log("Upsert tests failed:", report.upsert.error);
+  }
+
+  // =========================================================================
+  // NEW: Bulk operations tests
+  // =========================================================================
+  console.log("Testing bulk-create / bulk-update / bulk-delete...");
+  try {
+    const bulkRows = [
+      { Title: "Bulk1", Score: 1 },
+      { Title: "Bulk2", Score: 2 },
+      { Title: "Bulk3", Score: 3 },
+    ];
+    const createResult = bulkCreateRows(primary.id, bulkRows);
+    assert(createResult !== undefined, "bulk-create should return a result");
+    // Read back to get Ids — this is the real verification
+    const allRows = listRows(primary.id, { where: "(Title,like,Bulk%)" });
+    const bulkIds = (allRows.list || []).filter((r) => r.Title && r.Title.startsWith("Bulk")).map((r) => r.Id);
+    assert(bulkIds.length >= 3, "should find at least 3 bulk-created rows");
+    // Bulk update
+    const updatePayload = bulkIds.map((id) => ({ Id: id, Score: 99 }));
+    const updateResult = bulkUpdateRows(primary.id, updatePayload);
+    assert(updateResult !== undefined, "bulk-update should return a result");
+    // Verify update worked
+    const updatedRows = listRows(primary.id, { where: "(Title,like,Bulk%)" });
+    const scores = (updatedRows.list || []).filter((r) => r.Title && r.Title.startsWith("Bulk")).map((r) => r.Score);
+    assert(scores.every((s) => String(s) === "99"), "bulk-update should have set Score to 99");
+    // Bulk delete
+    const deletePayload = bulkIds.map((id) => ({ Id: id }));
+    const deleteResult = bulkDeleteRows(primary.id, deletePayload);
+    assert(deleteResult !== undefined, "bulk-delete should return a result");
+    // Verify delete worked
+    const afterDelete = listRows(primary.id, { where: "(Title,like,Bulk%)" });
+    const remaining = (afterDelete.list || []).filter((r) => r.Title && r.Title.startsWith("Bulk"));
+    assert(remaining.length === 0, "bulk-delete should have removed all Bulk rows");
+    report.bulkOps = { status: "passed" };
+  } catch (err) {
+    report.bulkOps = { status: "failed", error: err.message || String(err) };
+    console.log("Bulk ops tests failed:", report.bulkOps.error);
+  }
+
+  // =========================================================================
+  // NEW: Bulk upsert tests
+  // =========================================================================
+  console.log("Testing bulk-upsert...");
+  try {
+    // Create some rows first
+    createRow(primary.id, { Title: "BulkUpsertExisting", Score: 1 });
+    const buResult = bulkUpsertRows(primary.id, "Title", [
+      { Title: "BulkUpsertExisting", Score: 50 },  // should update
+      { Title: "BulkUpsertNew", Score: 60 },        // should create
+    ]);
+    assert(buResult !== undefined, "bulk-upsert should return a result");
+    // Verify
+    const buRows = listRows(primary.id, { where: "(Title,like,BulkUpsert%)" });
+    const existing = (buRows.list || []).find((r) => r.Title === "BulkUpsertExisting");
+    const created = (buRows.list || []).find((r) => r.Title === "BulkUpsertNew");
+    assert(existing, "bulk-upsert should have updated existing row");
+    assert(String(existing.Score) === "50", "bulk-upsert should have updated Score to 50");
+    assert(created, "bulk-upsert should have created new row");
+    // Cleanup
+    for (const r of buRows.list || []) {
+      try { deleteRow(primary.id, { Id: r.Id }); } catch { /* ignore */ }
+    }
+    report.bulkUpsert = { status: "passed" };
+  } catch (err) {
+    report.bulkUpsert = { status: "failed", error: err.message || String(err) };
+    console.log("Bulk upsert tests failed:", report.bulkUpsert.error);
+  }
+
+  // =========================================================================
+  // NEW: Request command tests
+  // =========================================================================
+  console.log("Testing request command...");
+  try {
+    // GET request with query
+    const getBases = rawRequest("GET", "/api/v2/meta/bases", { query: { limit: "5" } });
+    assert(getBases.list !== undefined, "request GET should return bases list");
+    // GET single base
+    const getBase2 = rawRequest("GET", `/api/v2/meta/bases/${BASE_ID}`);
+    assert(getBase2.id === BASE_ID, "request GET base should return correct id");
+    report.request = { status: "passed" };
+  } catch (err) {
+    report.request = { status: "failed", error: err.message || String(err) };
+    console.log("Request tests failed:", report.request.error);
+  }
+
+  // =========================================================================
+  // NEW: Meta endpoints tests
+  // =========================================================================
+  console.log("Testing meta endpoints...");
+  try {
+    const endpoints = metaEndpoints(BASE_ID);
+    assert(Array.isArray(endpoints) && endpoints.length > 0, "meta endpoints should return a non-empty array");
+    report.metaEndpoints = { status: "passed" };
+  } catch (err) {
+    report.metaEndpoints = { status: "failed", error: err.message || String(err) };
+    console.log("Meta endpoints tests failed:", report.metaEndpoints.error);
+  }
+
+  // =========================================================================
+  // NEW: Dynamic API command tests
+  // =========================================================================
+  console.log("Testing dynamic api commands...");
+  try {
+    const tag = findTableTagForName(swagger, tableA) || findTableTagForName(swagger, tableB);
+    if (!tag) throw new Error("No table tag found in swagger for dynamic api test");
+    const createOp = findCreateOpForTag(swagger, tag);
+    if (!createOp) throw new Error(`No create operation found for tag ${tag}`);
+    const dynRow = createRowViaDynamic(BASE_ID, tag, createOp.operationId, { Title: "DynamicApiRow" });
+    assert(dynRow.Id !== undefined, "dynamic api create should return an Id");
+    // Cleanup
+    const dynTableId = tableIdFromPath(createOp.urlPath);
+    if (dynTableId) {
+      try { deleteRow(dynTableId, { Id: dynRow.Id }); } catch { /* ignore */ }
+    }
+    report.dynamicApi = { status: "passed" };
+  } catch (err) {
+    report.dynamicApi = { status: "failed", error: err.message || String(err) };
+    console.log("Dynamic api tests failed:", report.dynamicApi.error);
+  }
+
+  // =========================================================================
+  // NEW: Storage upload via CLI command
+  // =========================================================================
+  console.log("Testing storage upload via CLI...");
+  try {
+    const tmpFile = path.join(ROOT, "scripts", `upload-test-${Date.now()}.txt`);
+    fs.writeFileSync(tmpFile, "nocodb-cli e2e upload test", "utf8");
+    const uploadResult = storageUpload(tmpFile);
+    assert(uploadResult !== undefined, "storage upload should return a result");
+    report.storageUpload = { status: "passed" };
+  } catch (err) {
+    report.storageUpload = { status: "failed", error: err.message || String(err) };
+    console.log("Storage upload tests failed:", report.storageUpload.error);
   }
 
   console.log("Cleanup...");
@@ -724,9 +1317,21 @@ async function main() {
   const colSkipped = report.columns.filter((c) => c.status === "skipped").length;
   const linkPassed = report.links.filter((l) => l.status === "passed").length;
   const linkFailed = report.links.filter((l) => l.status === "failed").length;
+
+  // Gather feature test results
+  const featureTests = [
+    "workspace", "bases", "tablesExtra", "views", "filters", "sorts",
+    "upsert", "bulkOps", "bulkUpsert", "request", "metaEndpoints",
+    "dynamicApi", "storageUpload",
+  ];
+  const featurePassed = featureTests.filter((k) => report[k]?.status === "passed").length;
+  const featureFailed = featureTests.filter((k) => report[k]?.status === "failed").length;
+  const featureSkipped = featureTests.filter((k) => !report[k]).length;
+
   report.summary = {
     columns: { passed: colPassed, failed: colFailed, skipped: colSkipped },
     links: { passed: linkPassed, failed: linkFailed },
+    features: { passed: featurePassed, failed: featureFailed, skipped: featureSkipped },
   };
   report.finishedAt = new Date().toISOString();
   writeReport(report);

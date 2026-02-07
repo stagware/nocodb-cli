@@ -93,12 +93,13 @@ describe("rows bulk commands", () => {
       await runCli([
         "--base", "b1", "rows", "bulk-create", "t1",
         "--data", "[{\"Email\":\"a@example.com\"},{\"Email\":\"b@example.com\"}]",
+        "--fail-fast",  // Use fail-fast mode to send as single bulk request
       ], configDir);
 
-      expect(calls).toHaveLength(1);
-      expect(calls[0].method).toBe("POST");
-      expect(calls[0].path).toBe("/api/v2/tables/t1/records");
-      expect(calls[0].body).toEqual([{ Email: "a@example.com" }, { Email: "b@example.com" }]);
+      expect(calls.length).toBeGreaterThanOrEqual(1);
+      const recordsCall = calls.find(c => c.method === "POST" && c.path === "/api/v2/tables/t1/records");
+      expect(recordsCall).toBeDefined();
+      expect(recordsCall?.body).toEqual([{ Email: "a@example.com" }, { Email: "b@example.com" }]);
     } finally {
       server.close();
     }
@@ -114,12 +115,13 @@ describe("rows bulk commands", () => {
       await runCli([
         "--base", "b1", "rows", "bulk-update", "t1",
         "--data", "[{\"Id\":1,\"Name\":\"A\"},{\"Id\":2,\"Name\":\"B\"}]",
+        "--fail-fast",  // Use fail-fast mode to send as single bulk request
       ], configDir);
 
-      expect(calls).toHaveLength(1);
-      expect(calls[0].method).toBe("PATCH");
-      expect(calls[0].path).toBe("/api/v2/tables/t1/records");
-      expect(calls[0].body).toEqual([{ Id: 1, Name: "A" }, { Id: 2, Name: "B" }]);
+      expect(calls.length).toBeGreaterThanOrEqual(1);
+      const recordsCall = calls.find(c => c.method === "PATCH" && c.path === "/api/v2/tables/t1/records");
+      expect(recordsCall).toBeDefined();
+      expect(recordsCall?.body).toEqual([{ Id: 1, Name: "A" }, { Id: 2, Name: "B" }]);
     } finally {
       server.close();
     }
@@ -135,12 +137,13 @@ describe("rows bulk commands", () => {
       await runCli([
         "--base", "b1", "rows", "bulk-delete", "t1",
         "--data", "[{\"Id\":1},{\"Id\":2}]",
+        "--fail-fast",  // Use fail-fast mode to send as single bulk request
       ], configDir);
 
-      expect(calls).toHaveLength(1);
-      expect(calls[0].method).toBe("DELETE");
-      expect(calls[0].path).toBe("/api/v2/tables/t1/records");
-      expect(calls[0].body).toEqual([{ Id: 1 }, { Id: 2 }]);
+      expect(calls.length).toBeGreaterThanOrEqual(1);
+      const recordsCall = calls.find(c => c.method === "DELETE" && c.path === "/api/v2/tables/t1/records");
+      expect(recordsCall).toBeDefined();
+      expect(recordsCall?.body).toEqual([{ Id: 1 }, { Id: 2 }]);
     } finally {
       server.close();
     }

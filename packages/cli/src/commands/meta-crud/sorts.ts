@@ -1,54 +1,118 @@
-import { addJsonInputOptions, addOutputOptions, withErrorHandler } from "../helpers.js";
-import type { MetaCrudDeps } from "./types.js";
+/**
+ * Sorts command handlers for sort management operations.
+ * 
+ * @module commands/meta-crud/sorts
+ */
 
-export function registerSortsCommands({
-  program,
-  createMeta,
-  readJsonInput,
-  printResult,
-  handleError,
-}: MetaCrudDeps): void {
+import { Command } from "commander";
+import type { Container } from "../../container.js";
+import type { ConfigManager } from "../../config/manager.js";
+import type { MetaService } from "../../services/meta-service.js";
+import type { NocoClient } from "@nocodb/sdk";
+import { parseJsonInput } from "../../utils/parsing.js";
+import { addOutputOptions, addJsonInputOptions } from "../helpers.js";
+import {
+  printResult, handleError,
+  type OutputOptions, type JsonInputOptions,
+} from "../../utils/command-utils.js";
+
+export function registerSortsCommands(program: Command, container: Container): void {
   const sortsCmd = program.command("sorts").description("Manage view sorts");
 
   addOutputOptions(sortsCmd.command("list").argument("viewId", "View id")).action(
-    withErrorHandler(handleError, async (viewId: string, options: { pretty?: boolean; format?: string }) => {
-      const meta = createMeta();
-      const result = await meta.listViewSorts(viewId);
-      printResult(result, options);
-    }),
+    async (viewId: string, options: OutputOptions) => {
+      try {
+        const configManager = container.get<ConfigManager>("configManager");
+        const createClient = container.get<Function>("createClient");
+        const metaServiceFactory = container.get<Function>("metaService");
+
+        const { workspace, settings } = configManager.getEffectiveConfig({});
+        const client = createClient(workspace, settings) as NocoClient;
+        const metaService = metaServiceFactory(client) as MetaService;
+
+        const result = await metaService.listViewSorts(viewId);
+        printResult(result, options);
+      } catch (err) {
+        handleError(err);
+      }
+    }
   );
 
   addOutputOptions(sortsCmd.command("get").argument("sortId", "Sort id")).action(
-    withErrorHandler(handleError, async (sortId: string, options: { pretty?: boolean; format?: string }) => {
-      const meta = createMeta();
-      const result = await meta.getSort(sortId);
-      printResult(result, options);
-    }),
+    async (sortId: string, options: OutputOptions) => {
+      try {
+        const configManager = container.get<ConfigManager>("configManager");
+        const createClient = container.get<Function>("createClient");
+        const metaServiceFactory = container.get<Function>("metaService");
+
+        const { workspace, settings } = configManager.getEffectiveConfig({});
+        const client = createClient(workspace, settings) as NocoClient;
+        const metaService = metaServiceFactory(client) as MetaService;
+
+        const result = await metaService.getSort(sortId);
+        printResult(result, options);
+      } catch (err) {
+        handleError(err);
+      }
+    }
   );
 
   addOutputOptions(addJsonInputOptions(sortsCmd.command("create").argument("viewId", "View id"))).action(
-    withErrorHandler(handleError, async (viewId: string, options: { data?: string; dataFile?: string; pretty?: boolean; format?: string }) => {
-      const meta = createMeta();
-      const body = await readJsonInput(options.data, options.dataFile);
-      const result = await meta.createViewSort(viewId, body);
-      printResult(result, options);
-    }),
+    async (viewId: string, options: JsonInputOptions & OutputOptions) => {
+      try {
+        const configManager = container.get<ConfigManager>("configManager");
+        const createClient = container.get<Function>("createClient");
+        const metaServiceFactory = container.get<Function>("metaService");
+
+        const { workspace, settings } = configManager.getEffectiveConfig({});
+        const client = createClient(workspace, settings) as NocoClient;
+        const metaService = metaServiceFactory(client) as MetaService;
+
+        const body = await parseJsonInput(options.data, options.dataFile);
+        const result = await metaService.createViewSort(viewId, body);
+        printResult(result, options);
+      } catch (err) {
+        handleError(err);
+      }
+    }
   );
 
   addOutputOptions(addJsonInputOptions(sortsCmd.command("update").argument("sortId", "Sort id"))).action(
-    withErrorHandler(handleError, async (sortId: string, options: { data?: string; dataFile?: string; pretty?: boolean; format?: string }) => {
-      const meta = createMeta();
-      const body = await readJsonInput(options.data, options.dataFile);
-      const result = await meta.updateSort(sortId, body);
-      printResult(result, options);
-    }),
+    async (sortId: string, options: JsonInputOptions & OutputOptions) => {
+      try {
+        const configManager = container.get<ConfigManager>("configManager");
+        const createClient = container.get<Function>("createClient");
+        const metaServiceFactory = container.get<Function>("metaService");
+
+        const { workspace, settings } = configManager.getEffectiveConfig({});
+        const client = createClient(workspace, settings) as NocoClient;
+        const metaService = metaServiceFactory(client) as MetaService;
+
+        const body = await parseJsonInput(options.data, options.dataFile);
+        const result = await metaService.updateSort(sortId, body);
+        printResult(result, options);
+      } catch (err) {
+        handleError(err);
+      }
+    }
   );
 
   addOutputOptions(sortsCmd.command("delete").argument("sortId", "Sort id")).action(
-    withErrorHandler(handleError, async (sortId: string, options: { pretty?: boolean; format?: string }) => {
-      const meta = createMeta();
-      const result = await meta.deleteSort(sortId);
-      printResult(result, options);
-    }),
+    async (sortId: string, options: OutputOptions) => {
+      try {
+        const configManager = container.get<ConfigManager>("configManager");
+        const createClient = container.get<Function>("createClient");
+        const metaServiceFactory = container.get<Function>("metaService");
+
+        const { workspace, settings } = configManager.getEffectiveConfig({});
+        const client = createClient(workspace, settings) as NocoClient;
+        const metaService = metaServiceFactory(client) as MetaService;
+
+        const result = await metaService.deleteSort(sortId);
+        printResult(result, options);
+      } catch (err) {
+        handleError(err);
+      }
+    }
   );
 }
