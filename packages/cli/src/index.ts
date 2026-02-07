@@ -5,8 +5,6 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { MetaApi, NocoClient } from "@nocodb/sdk";
 import {
-  formatCsv,
-  formatTable,
   getBaseIdFromArgv as parseBaseIdArgv,
   handleError,
   isHttpMethod,
@@ -27,6 +25,7 @@ import { registerRequestCommand } from "./commands/request.js";
 import { registerSchemaCommands } from "./commands/schema.js";
 import { registerDataIoCommands } from "./commands/data-io.js";
 import { registerMetaCrudCommands } from "./commands/meta-crud.js";
+import { registerMeCommand } from "./commands/me.js";
 import { ConfigManager } from "./config/manager.js";
 import { createContainer, type Container } from "./container.js";
 
@@ -103,26 +102,6 @@ async function readJsonInput(data?: string, dataFile?: string): Promise<unknown>
   throw new Error("Provide --data or --data-file");
 }
 
-function printResult(result: unknown, options?: { pretty?: boolean; format?: string } | boolean): void {
-  if (process.env.NOCO_QUIET === "1") {
-    return;
-  }
-  if (typeof result === "string") {
-    console.log(result);
-    return;
-  }
-  const pretty = typeof options === "boolean" ? options : options?.pretty;
-  const format = typeof options === "boolean" ? "json" : (options?.format ?? "json");
-  if (format === "csv") {
-    console.log(formatCsv(result));
-    return;
-  }
-  if (format === "table") {
-    console.log(formatTable(result));
-    return;
-  }
-  console.log(JSON.stringify(result, null, pretty ? 2 : 0));
-}
 
 function clientOptionsFromSettings() {
   const opts = program.opts();
@@ -188,6 +167,7 @@ function registerCommands(): void {
   registerDataIoCommands(program, container);
   registerMetaCommands(program, container);
   registerRequestCommand(program, container);
+  registerMeCommand(program, container);
 }
 
 /**

@@ -204,9 +204,8 @@ describe('createContainer', () => {
   let configManager: ConfigManager;
 
   beforeEach(() => {
-    // Create a temporary directory for test config
-    tempDir = path.join(os.tmpdir(), `nocodb-cli-test-${Date.now()}`);
-    fs.mkdirSync(tempDir, { recursive: true });
+    // Create a temporary directory for test config (mkdtempSync guarantees uniqueness)
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nocodb-cli-container-'));
     
     // Create a config manager with test directory
     configManager = new ConfigManager(tempDir);
@@ -225,9 +224,19 @@ describe('createContainer', () => {
   });
 
   afterEach(() => {
-    // Clean up temp directory
-    if (fs.existsSync(tempDir)) {
-      fs.rmSync(tempDir, { recursive: true, force: true });
+    // Retry cleanup for Windows file-locking resilience
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        if (fs.existsSync(tempDir)) {
+          fs.rmSync(tempDir, { recursive: true, force: true });
+        }
+        break;
+      } catch {
+        if (attempt < 2) {
+          const start = Date.now();
+          while (Date.now() - start < 100) { /* wait for locks to release */ }
+        }
+      }
     }
   });
 
@@ -814,8 +823,7 @@ describe('createTestContainer', () => {
 
     it('should support testing with real ConfigManager and mocked services', () => {
       // Create a real ConfigManager for integration-style tests
-      const tempDir = path.join(os.tmpdir(), `nocodb-cli-test-${Date.now()}`);
-      fs.mkdirSync(tempDir, { recursive: true });
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nocodb-cli-container-real-'));
 
       try {
         const realConfigManager = new ConfigManager(tempDir);
@@ -847,9 +855,19 @@ describe('createTestContainer', () => {
         const client = createClient();
         expect(client).toBe(mockClient);
       } finally {
-        // Clean up
-        if (fs.existsSync(tempDir)) {
-          fs.rmSync(tempDir, { recursive: true, force: true });
+        // Retry cleanup for Windows file-locking resilience
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            if (fs.existsSync(tempDir)) {
+              fs.rmSync(tempDir, { recursive: true, force: true });
+            }
+            break;
+          } catch {
+            if (attempt < 2) {
+              const start = Date.now();
+              while (Date.now() - start < 100) { /* wait for locks to release */ }
+            }
+          }
         }
       }
     });

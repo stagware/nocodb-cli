@@ -455,6 +455,16 @@ function schemaIntrospectAllowFail(tableId, extraFlags = []) {
   return runCliAllowFail(["schema", "introspect", tableId, ...extraFlags]);
 }
 
+// --- Me helper ---
+function me(extraFlags = []) {
+  const out = runCli(["me", "--pretty", ...extraFlags]);
+  return jsonParseOrThrow(out);
+}
+
+function meRaw(extraFlags = []) {
+  return runCliAllowFail(["me", ...extraFlags]);
+}
+
 // --- Workspace/Alias helpers ---
 function workspaceAdd(name, url, token, baseId) {
   const args = ["workspace", "add", name, url, token];
@@ -563,7 +573,7 @@ function writeReportMarkdown(report) {
   const featureKeys = [
     "workspace", "bases", "tablesExtra", "views", "filters", "sorts",
     "upsert", "bulkOps", "bulkUpsert", "request", "metaEndpoints",
-    "dynamicApi", "storageUpload", "schemaIntrospect",
+    "dynamicApi", "storageUpload", "schemaIntrospect", "me", "selectFilter",
   ];
   for (const key of featureKeys) {
     const result = report[key];
@@ -1357,6 +1367,66 @@ async function main() {
     console.log("Schema introspection tests failed:", report.schemaIntrospect.error);
   }
 
+  // =========================================================================
+  // NEW: Me (auth check) tests
+  // =========================================================================
+  console.log("Testing me command...");
+  try {
+    const profile = me();
+    assert(profile.email !== undefined, "me should return an email");
+    assert(typeof profile.email === "string" && profile.email.length > 0, "me email should be non-empty");
+    // Test --select filtering
+    const raw = meRaw(["--select", "email"]);
+    assert(raw.status === 0, "me --select should succeed");
+    const filtered = jsonParseOrThrow(raw.stdout);
+    assert(filtered.email !== undefined, "me --select email should include email");
+    assert(filtered.id === undefined, "me --select email should exclude id");
+    assert(filtered.roles === undefined, "me --select email should exclude roles");
+    report.me = { status: "passed" };
+  } catch (err) {
+    report.me = { status: "failed", error: err.message || String(err) };
+    console.log("Me tests failed:", report.me.error);
+  }
+
+  // =========================================================================
+  // NEW: --select field filtering tests
+  // =========================================================================
+  console.log("Testing --select field filtering...");
+  try {
+    // --select on list response (bases list)
+    const basesRaw = runCli(["bases", "list", "--select", "id"]);
+    const basesFiltered = jsonParseOrThrow(basesRaw);
+    assert(basesFiltered.list !== undefined, "--select on list should preserve list wrapper");
+    assert(basesFiltered.list.length > 0, "--select bases list should have items");
+    assert(basesFiltered.list[0].id !== undefined, "--select id should include id");
+    assert(basesFiltered.list[0].title === undefined, "--select id should exclude title");
+
+    // --select on single object (bases get)
+    const baseRaw = runCli(["bases", "get", BASE_ID, "--select", "id,title"]);
+    const baseFiltered = jsonParseOrThrow(baseRaw);
+    assert(baseFiltered.id === BASE_ID, "--select should preserve id value");
+    assert(baseFiltered.title !== undefined, "--select id,title should include title");
+
+    // --select with --format csv
+    const csvRaw = runCli(["bases", "list", "--select", "id", "--format", "csv"]);
+    assert(csvRaw.includes("id"), "--select csv should contain id header");
+    assert(!csvRaw.includes("title"), "--select csv should not contain title");
+
+    // --select on rows list
+    const rowsRaw = runCli(["rows", "list", primary.id, "--select", "Title"]);
+    const rowsFiltered = jsonParseOrThrow(rowsRaw);
+    assert(rowsFiltered.list !== undefined, "--select on rows list should preserve list wrapper");
+    if (rowsFiltered.list.length > 0) {
+      assert(rowsFiltered.list[0].Title !== undefined, "--select Title should include Title");
+      assert(rowsFiltered.list[0].Id === undefined, "--select Title should exclude Id");
+    }
+
+    report.selectFilter = { status: "passed" };
+  } catch (err) {
+    report.selectFilter = { status: "failed", error: err.message || String(err) };
+    console.log("--select tests failed:", report.selectFilter.error);
+  }
+
   console.log("Cleanup...");
   deleteRow(primary.id, { Id: rowA.Id });
   deleteRow(secondary.id, { Id: rowB.Id });
@@ -1389,7 +1459,7 @@ async function main() {
   const featureTests = [
     "workspace", "bases", "tablesExtra", "views", "filters", "sorts",
     "upsert", "bulkOps", "bulkUpsert", "request", "metaEndpoints",
-    "dynamicApi", "storageUpload", "schemaIntrospect",
+    "dynamicApi", "storageUpload", "schemaIntrospect", "me", "selectFilter",
   ];
   const featurePassed = featureTests.filter((k) => report[k]?.status === "passed").length;
   const featureFailed = featureTests.filter((k) => report[k]?.status === "failed").length;

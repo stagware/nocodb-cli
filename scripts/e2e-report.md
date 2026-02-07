@@ -1,19 +1,19 @@
 # NocoDB CLI E2E Report
 
 Base: https://noco.stagware.org (id: p6lg5hpy02yngmk)
-Started: 2026-02-07T14:06:14.635Z
-Finished: 2026-02-07T14:07:12.421Z
+Started: 2026-02-07T21:42:48.052Z
+Finished: 2026-02-07T21:43:54.033Z
 
 ## Summary
 - Columns: 23 passed, 0 failed, 0 skipped
 - Links: 1 passed, 0 failed
-- Features: 13 passed, 0 failed, 0 skipped
+- Features: 16 passed, 0 failed, 0 skipped
 
 ## Tables
-- CliE2E_Primary_2026-02-07T14-06-14-635Z (mi7kk8vow5dcxw5)
-- CliE2E_Secondary_2026-02-07T14-06-14-635Z (m284o8fcfbilx2o)
-- CliE2E_Formula_2026-02-07T14-06-14-635Z (mrhx9z27kk9580d)
-- CliE2E_Types_2026-02-07T14-06-14-635Z (mbhve2r7pdiv24b)
+- CliE2E_Primary_2026-02-07T21-42-48-052Z (m5a2ksan0mcbg4x)
+- CliE2E_Secondary_2026-02-07T21-42-48-052Z (mgx9laihwbun9np)
+- CliE2E_Formula_2026-02-07T21-42-48-052Z (mkeobevlf8tt41t)
+- CliE2E_Types_2026-02-07T21-42-48-052Z (motq93uwt7x6ylq)
 
 ## Column Tests
 - PASSED: LinkToSecondary [LinkToAnotherRecord]
@@ -57,3 +57,6 @@ Finished: 2026-02-07T14:07:12.421Z
 - PASSED: metaEndpoints
 - PASSED: dynamicApi
 - PASSED: storageUpload
+- PASSED: schemaIntrospect
+- PASSED: me
+- PASSED: selectFilter

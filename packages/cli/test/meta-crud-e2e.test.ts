@@ -189,6 +189,13 @@ function startServer() {
       return;
     }
 
+    // --- Me (auth check) ---
+    if (url.pathname === "/api/v1/auth/user/me" && req.method === "GET") {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({ id: "usr1", email: "test@example.com", display_name: "Test User", roles: "owner" }));
+      return;
+    }
+
     res.writeHead(404, { "content-type": "application/json" });
     res.end(JSON.stringify({ error: "not found" }));
   });
@@ -746,5 +753,112 @@ describe("meta-crud e2e: sorts", () => {
 
       expect(calls.some((c) => c.method === "DELETE" && c.path === "/api/v2/meta/sorts/srt1")).toBe(true);
     } finally { server.close(); }
+  });
+});
+
+describe("me e2e", () => {
+  afterEach(() => {
+    delete process.env.NOCO_CONFIG_DIR;
+    delete process.env.NOCO_QUIET;
+    vi.restoreAllMocks();
+  });
+
+  it("me returns user profile", async () => {
+    const { server, baseUrl, calls } = await startServer();
+    const { logs, restore } = captureLogs();
+    try {
+      const configDir = fs.mkdtempSync(path.join(os.tmpdir(), "nocodb-cli-me-"));
+      process.env.NOCO_QUIET = "1";
+      await runCli(["config", "set", "baseUrl", baseUrl], configDir);
+      process.env.NOCO_QUIET = "0";
+
+      await runCli(["me", "--pretty"], configDir);
+
+      expect(calls.some((c) => c.method === "GET" && c.path === "/api/v1/auth/user/me")).toBe(true);
+      const output = logs.join("\n");
+      expect(output).toContain("test@example.com");
+      expect(output).toContain("Test User");
+    } finally { restore(); server.close(); }
+  });
+
+  it("me with --select filters fields", async () => {
+    const { server, baseUrl } = await startServer();
+    const { logs, restore } = captureLogs();
+    try {
+      const configDir = fs.mkdtempSync(path.join(os.tmpdir(), "nocodb-cli-me-select-"));
+      process.env.NOCO_QUIET = "1";
+      await runCli(["config", "set", "baseUrl", baseUrl], configDir);
+      process.env.NOCO_QUIET = "0";
+
+      await runCli(["me", "--select", "email,display_name"], configDir);
+
+      const output = logs.join("\n");
+      const parsed = JSON.parse(output);
+      expect(parsed).toEqual({ email: "test@example.com", display_name: "Test User" });
+      expect(parsed).not.toHaveProperty("id");
+      expect(parsed).not.toHaveProperty("roles");
+    } finally { restore(); server.close(); }
+  });
+});
+
+describe("--select flag e2e", () => {
+  afterEach(() => {
+    delete process.env.NOCO_CONFIG_DIR;
+    delete process.env.NOCO_QUIET;
+    vi.restoreAllMocks();
+  });
+
+  it("bases list --select filters list items", async () => {
+    const { server, baseUrl } = await startServer();
+    const { logs, restore } = captureLogs();
+    try {
+      const configDir = fs.mkdtempSync(path.join(os.tmpdir(), "nocodb-cli-select-list-"));
+      process.env.NOCO_QUIET = "1";
+      await runCli(["config", "set", "baseUrl", baseUrl], configDir);
+      process.env.NOCO_QUIET = "0";
+
+      await runCli(["bases", "list", "--select", "id"], configDir);
+
+      const output = logs.join("\n");
+      const parsed = JSON.parse(output);
+      expect(parsed.list).toEqual([{ id: "b1" }]);
+      expect(parsed.list[0]).not.toHaveProperty("title");
+    } finally { restore(); server.close(); }
+  });
+
+  it("bases get --select filters single object", async () => {
+    const { server, baseUrl } = await startServer();
+    const { logs, restore } = captureLogs();
+    try {
+      const configDir = fs.mkdtempSync(path.join(os.tmpdir(), "nocodb-cli-select-get-"));
+      process.env.NOCO_QUIET = "1";
+      await runCli(["config", "set", "baseUrl", baseUrl], configDir);
+      process.env.NOCO_QUIET = "0";
+
+      await runCli(["bases", "get", "b1", "--select", "title"], configDir);
+
+      const output = logs.join("\n");
+      const parsed = JSON.parse(output);
+      expect(parsed).toEqual({ title: "Base1" });
+      expect(parsed).not.toHaveProperty("id");
+    } finally { restore(); server.close(); }
+  });
+
+  it("--select works with --format csv", async () => {
+    const { server, baseUrl } = await startServer();
+    const { logs, restore } = captureLogs();
+    try {
+      const configDir = fs.mkdtempSync(path.join(os.tmpdir(), "nocodb-cli-select-csv-"));
+      process.env.NOCO_QUIET = "1";
+      await runCli(["config", "set", "baseUrl", baseUrl], configDir);
+      process.env.NOCO_QUIET = "0";
+
+      await runCli(["bases", "list", "--select", "title", "--format", "csv"], configDir);
+
+      const output = logs.join("\n");
+      expect(output).toContain("title");
+      expect(output).toContain("Base1");
+      expect(output).not.toContain("id");
+    } finally { restore(); server.close(); }
   });
 });

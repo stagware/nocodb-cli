@@ -2,7 +2,7 @@ import { Command } from "commander";
 import { NocoClient, parseHeader } from "@nocodb/sdk";
 import { parseKeyValue } from "../lib.js";
 import { addJsonInputOptions, addOutputOptions } from "./helpers.js";
-import { formatError, getExitCode } from "../utils/error-handling.js";
+import { printResult, handleError, type OutputOptions } from "../utils/command-utils.js";
 import type { Container } from "../container.js";
 import type { ConfigManager } from "../config/manager.js";
 import type { WorkspaceConfig, GlobalSettings } from "../config/types.js";
@@ -30,9 +30,7 @@ export function registerRequestCommand(program: Command, container: Container): 
       header: string[];
       data?: string;
       dataFile?: string;
-      pretty?: boolean;
-      format?: string;
-    }) => {
+    } & OutputOptions) => {
       try {
         const query: Record<string, string> = {};
         for (const item of options.query) {
@@ -54,7 +52,8 @@ export function registerRequestCommand(program: Command, container: Container): 
           body = JSON.parse(raw);
         }
 
-        const client = createClient();
+        const { workspace, settings } = configManager.getEffectiveConfig({});
+        const client = createClient(workspace, settings);
         const result = await client.request(
           method.toUpperCase(),
           path,
@@ -65,12 +64,9 @@ export function registerRequestCommand(program: Command, container: Container): 
           }
         );
 
-        if (process.env.NOCO_QUIET !== "1") {
-          console.log(JSON.stringify(result, null, options.pretty ? 2 : 0));
-        }
+        printResult(result, options);
       } catch (err) {
-        console.error(formatError(err, false));
-        process.exit(getExitCode(err));
+        handleError(err);
       }
     },
   );

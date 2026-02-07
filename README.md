@@ -92,6 +92,16 @@ nocodb config set baseId <baseId>
 nocodb header set xc-token <token>
 ```
 
+## Auth Check
+
+Quickly verify your authentication and see the current user:
+
+```sh
+nocodb me
+nocodb me --pretty
+nocodb me --select email,display_name
+```
+
 ## Bases
 
 ```sh
@@ -212,7 +222,7 @@ nocodb --verbose rows list <tableId>
 
 ## Output formats
 
-All commands support `--pretty` for indented JSON and `--format <type>` for alternative output:
+All commands support `--pretty` for indented JSON, `--format <type>` for alternative output, and `--select` for field filtering:
 
 ```sh
 nocodb bases list --pretty              # indented JSON
@@ -220,6 +230,18 @@ nocodb bases list --format csv          # CSV output
 nocodb bases list --format table        # ASCII table
 nocodb rows list <tableId> --format table
 ```
+
+### Field selection
+
+Use `--select` to pick specific fields from the output — useful for scripting and piping:
+
+```sh
+nocodb bases list --select id,title
+nocodb rows list <tableId> --select Name,Status --format csv
+nocodb me --select email,display_name
+```
+
+`--select` works with all output formats (JSON, CSV, table) and handles both single objects and list responses.
 
 ## Links
 

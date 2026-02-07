@@ -83,10 +83,10 @@
 
 ### CLI Gaps
 
-- **No `nocodb me`** — no quick way to verify auth/identity
+- ~~**No `nocodb me`** — no quick way to verify auth/identity~~ ✅ Done
 - ~~**No env var support for config** — no `NOCO_TOKEN`, `NOCO_BASE_URL` env vars for CI/CD~~ ✅ Done
 - **No help examples** — commands lack inline usage examples
-- **No `--select` field filtering** — no way to pick specific fields from output
+- ~~**No `--select` field filtering** — no way to pick specific fields from output~~ ✅ Done
 
 ---
 
@@ -94,10 +94,10 @@
 
 | # | Feature | Effort | Impact | Notes |
 |---|---------|--------|--------|-------|
-| 1 | `nocodb me` command | ~20 lines | Low | Quick auth sanity check |
+| 1 | ~~`nocodb me` command~~ | ~~~20 lines~~ | ~~Low~~ | ✅ Done — `nocodb me` calls `/api/v1/auth/user/me` |
 | 2 | ~~Env var support for all config options~~ | ~~~30 lines~~ | ~~Medium~~ | ✅ Done — `NOCO_TOKEN`, `NOCO_BASE_URL`, `NOCO_BASE_ID` |
 | 3 | ~~Pagination helpers (auto-fetch all pages)~~ | ~~~60 lines~~ | ~~Medium~~ | ✅ Done — `--all` flag + `fetchAllPages()` |
-| 4 | `--select` field filtering on output | ~40 lines | Medium | Power-user feature for scripting |
+| 4 | ~~`--select` field filtering on output~~ | ~~~40 lines~~ | ~~Medium~~ | ✅ Done — `--select id,title` on all commands |
 | 5 | Inline help examples on commands | ~100 lines | Low | Better developer experience |
 
 ---

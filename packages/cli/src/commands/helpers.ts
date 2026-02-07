@@ -3,7 +3,8 @@ import type { Command } from "commander";
 export function addOutputOptions<T extends Command>(cmd: T): T {
   return cmd
     .option("--pretty", "Pretty print JSON response")
-    .option("--format <type>", "Output format (json, csv, table)") as T;
+    .option("--format <type>", "Output format (json, csv, table)")
+    .option("--select <fields>", "Comma-separated list of fields to include in output") as T;
 }
 
 export function addJsonInputOptions<T extends Command>(cmd: T, bodyDescription = "Request JSON body"): T {

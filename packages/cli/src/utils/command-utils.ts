@@ -24,6 +24,7 @@ import { parseKeyValue, validateEntityId } from "./parsing.js";
 export interface OutputOptions {
   pretty?: boolean;
   format?: string;
+  select?: string;
 }
 
 /**
@@ -35,25 +36,62 @@ export interface JsonInputOptions {
 }
 
 /**
- * Formats and prints result to console based on output options.
- * Respects NOCO_QUIET environment variable.
- * @param result - Data to print
- * @param options - Output formatting options
+ * Filters an object or array of objects to only include the specified fields.
+ * Supports ListResponse wrappers (objects with a `list` array).
+ * @param data - Data to filter
+ * @param fields - Array of field names to keep
+ * @returns Filtered data
  */
+function selectFields(data: unknown, fields: string[]): unknown {
+  const pick = (obj: Record<string, unknown>): Record<string, unknown> => {
+    const out: Record<string, unknown> = {};
+    for (const f of fields) {
+      if (f in obj) out[f] = obj[f];
+    }
+    return out;
+  };
+
+  if (Array.isArray(data)) return data.map((item) => pick(item as Record<string, unknown>));
+  if (data && typeof data === "object") {
+    const obj = data as Record<string, unknown>;
+    if (Array.isArray(obj.list)) {
+      return { ...obj, list: (obj.list as Record<string, unknown>[]).map(pick) };
+    }
+    return pick(obj);
+  }
+  return data;
+}
+
 export function printResult(result: unknown, options: OutputOptions = {}): void {
   if (process.env.NOCO_QUIET === "1") return;
+
+  const fields = options.select ? options.select.split(",").map((s) => s.trim()) : undefined;
+  const data = fields ? selectFields(result, fields) : result;
+
+  if (fields && data && typeof data === "object") {
+    const isEmpty = (obj: Record<string, unknown>) => Object.keys(obj).length === 0;
+    const obj = data as Record<string, unknown>;
+    const empty = Array.isArray(obj.list)
+      ? (obj.list as Record<string, unknown>[]).length > 0 && (obj.list as Record<string, unknown>[]).every(isEmpty)
+      : Array.isArray(data)
+        ? (data as Record<string, unknown>[]).length > 0 && (data as Record<string, unknown>[]).every(isEmpty)
+        : isEmpty(obj);
+    if (empty) {
+      console.error(`Warning: --select fields (${fields.join(", ")}) matched no keys in the response`);
+    }
+  }
 
   const format = options.format || "json";
   switch (format) {
     case "csv":
-      console.log(formatCsv(result));
+      console.log(formatCsv(data));
       break;
     case "table":
-      console.log(formatTable(result));
+      console.log(formatTable(data));
       break;
     case "json":
     default:
-      console.log(formatJson(result, options.pretty || false));
+      console.log(formatJson(data, options.pretty || false));
       break;
   }
 }

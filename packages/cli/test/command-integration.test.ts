@@ -5,7 +5,7 @@
  * and error handling patterns.
  */
 
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { Command } from "commander";
 import { createTestContainer } from "../src/container.js";
 import { ConfigManager } from "../src/config/manager.js";
@@ -22,10 +22,30 @@ describe("Command Integration Tests", () => {
   let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
   let processExitSpy: ReturnType<typeof vi.spyOn>;
 
+  afterEach(() => {
+    consoleLogSpy?.mockRestore();
+    consoleErrorSpy?.mockRestore();
+    processExitSpy?.mockRestore();
+
+    // Retry cleanup for Windows file-locking
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        if (fs.existsSync(testConfigDir)) {
+          fs.rmSync(testConfigDir, { recursive: true, force: true });
+        }
+        break;
+      } catch {
+        if (attempt < 2) {
+          const start = Date.now();
+          while (Date.now() - start < 100) { /* wait for locks to release */ }
+        }
+      }
+    }
+  });
+
   beforeEach(() => {
-    // Create temporary config directory
-    testConfigDir = path.join(os.tmpdir(), `nocodb-cli-test-${Date.now()}`);
-    fs.mkdirSync(testConfigDir, { recursive: true });
+    // Create temporary config directory (mkdtempSync guarantees uniqueness)
+    testConfigDir = fs.mkdtempSync(path.join(os.tmpdir(), "nocodb-cli-cmd-int-"));
 
     // Create config manager with test directory
     configManager = new ConfigManager(testConfigDir);
