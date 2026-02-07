@@ -250,7 +250,9 @@ export function registerRowsCommands({
         .command("bulk-upsert")
         .argument("tableId", "Table id")
         .requiredOption("--match <field>", "Field name used to match existing rows")
-        .option("-q, --query <key=value>", "Query string parameter", collect, []),
+        .option("-q, --query <key=value>", "Query string parameter", collect, [])
+        .option("--create-only", "Only create, fail if a matching row exists")
+        .option("--update-only", "Only update, fail if no matching row exists"),
       "Request JSON body (array of row objects)",
     ),
   ).action(withErrorHandler(handleError, async (tableId: string, options: {
@@ -258,9 +260,15 @@ export function registerRowsCommands({
     data?: string;
     dataFile?: string;
     query: string[];
+    createOnly?: boolean;
+    updateOnly?: boolean;
     pretty?: boolean;
     format?: string;
   }) => {
+    if (options.createOnly && options.updateOnly) {
+      throw new Error("Choose only one of --create-only or --update-only");
+    }
+
     const { client, resolvedTableId } = createClientForTable(tableId);
     const baseId = getBaseId(getBaseIdFromArgv());
     const matchField = options.match;
@@ -294,6 +302,7 @@ export function registerRowsCommands({
     for (const row of incomingRows) {
       const matchValue = row[matchField];
       if (matchValue === undefined || matchValue === null) {
+        if (options.updateOnly) throw new Error(`Row missing match field '${matchField}'.`);
         toCreate.push(row);
         continue;
       }
@@ -302,8 +311,10 @@ export function registerRowsCommands({
         throw new Error(`Multiple rows matched '${matchField}=${matchValue}'. Bulk upsert requires unique matches.`);
       }
       if (matches.length === 1) {
+        if (options.createOnly) throw new Error(`Row already exists for '${matchField}=${matchValue}'.`);
         toUpdate.push(withRecordId(row, getRecordId(matches[0])));
       } else {
+        if (options.updateOnly) throw new Error(`No row matched '${matchField}=${matchValue}'.`);
         toCreate.push(row);
       }
     }
