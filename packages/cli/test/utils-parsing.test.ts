@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
-import { parseJsonInput, parseKeyValue, getBaseIdFromArgv } from "../src/utils/parsing.js";
+import { parseJsonInput, parseKeyValue, getBaseIdFromArgv, parseCsv } from "../src/utils/parsing.js";
 
 describe("parseJsonInput", () => {
   let tempDir: string;
@@ -184,5 +184,77 @@ describe("getBaseIdFromArgv", () => {
     const argv = ["--base", "base-123_abc"];
     const result = getBaseIdFromArgv(argv);
     expect(result).toBe("base-123_abc");
+  });
+});
+
+describe("parseCsv", () => {
+  it("should parse simple CSV", () => {
+    const result = parseCsv("name,age\nAlice,30\nBob,25");
+    expect(result).toEqual([
+      { name: "Alice", age: "30" },
+      { name: "Bob", age: "25" },
+    ]);
+  });
+
+  it("should handle quoted fields with commas", () => {
+    const result = parseCsv('name,address\nAlice,"123 Main St, Apt 4"\nBob,"456 Oak Ave"');
+    expect(result).toEqual([
+      { name: "Alice", address: "123 Main St, Apt 4" },
+      { name: "Bob", address: "456 Oak Ave" },
+    ]);
+  });
+
+  it("should handle escaped double quotes", () => {
+    const result = parseCsv('name,quote\nAlice,"She said ""hello"""\nBob,"He said ""bye"""');
+    expect(result).toEqual([
+      { name: "Alice", quote: 'She said "hello"' },
+      { name: "Bob", quote: 'He said "bye"' },
+    ]);
+  });
+
+  it("should handle newlines within quoted fields", () => {
+    const result = parseCsv('name,bio\nAlice,"Line 1\nLine 2"\nBob,Simple');
+    expect(result).toEqual([
+      { name: "Alice", bio: "Line 1\nLine 2" },
+      { name: "Bob", bio: "Simple" },
+    ]);
+  });
+
+  it("should throw on empty CSV", () => {
+    expect(() => parseCsv("")).toThrow("CSV is empty");
+  });
+
+  it("should return empty array for headers-only CSV", () => {
+    const result = parseCsv("name,age");
+    expect(result).toEqual([]);
+  });
+
+  it("should handle missing trailing values", () => {
+    const result = parseCsv("a,b,c\n1,2\n4,5,6");
+    expect(result).toEqual([
+      { a: "1", b: "2", c: "" },
+      { a: "4", b: "5", c: "6" },
+    ]);
+  });
+
+  it("should handle CRLF line endings", () => {
+    const result = parseCsv("name,age\r\nAlice,30\r\nBob,25");
+    expect(result).toEqual([
+      { name: "Alice", age: "30" },
+      { name: "Bob", age: "25" },
+    ]);
+  });
+
+  it("should skip blank lines", () => {
+    const result = parseCsv("name,age\nAlice,30\n\nBob,25\n");
+    expect(result).toEqual([
+      { name: "Alice", age: "30" },
+      { name: "Bob", age: "25" },
+    ]);
+  });
+
+  it("should handle single column CSV", () => {
+    const result = parseCsv("id\n1\n2\n3");
+    expect(result).toEqual([{ id: "1" }, { id: "2" }, { id: "3" }]);
   });
 });

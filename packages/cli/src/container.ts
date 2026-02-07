@@ -534,6 +534,7 @@ function createDefaultMockSwaggerService(): SwaggerService {
 function createDefaultMockRowServiceFactory(): (client: NocoClient) => RowService {
   return () => ({
     list: async () => ({ list: [], pageInfo: { totalRows: 0 } }),
+    listAll: async () => ({ list: [], pageInfo: { totalRows: 0 } }),
     create: async (tableId: string, body: unknown) => ({ Id: 1, ...(body as Record<string, unknown>) }),
     update: async (tableId: string, body: unknown) => ({ Id: 1, ...(body as Record<string, unknown>) }),
     delete: async () => ({ Id: 1 }),

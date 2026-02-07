@@ -25,6 +25,7 @@ import { registerStorageCommands } from "./commands/storage.js";
 import { registerWorkspaceAliasCommands } from "./commands/workspace-alias.js";
 import { registerRequestCommand } from "./commands/request.js";
 import { registerSchemaCommands } from "./commands/schema.js";
+import { registerDataIoCommands } from "./commands/data-io.js";
 import { registerMetaCrudCommands } from "./commands/meta-crud.js";
 import { ConfigManager } from "./config/manager.js";
 import { createContainer, type Container } from "./container.js";
@@ -184,6 +185,7 @@ function registerCommands(): void {
   registerLinksCommands(program, container);
   registerStorageCommands(program, container);
   registerSchemaCommands(program, container);
+  registerDataIoCommands(program, container);
   registerMetaCommands(program, container);
   registerRequestCommand(program, container);
 }

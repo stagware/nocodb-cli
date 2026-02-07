@@ -506,6 +506,9 @@ export class ConfigManager {
   } {
     const workspace = this.getActiveWorkspace();
     
+    // Apply env var overrides (higher priority than workspace, lower than CLI flags)
+    const effectiveWorkspace = this.applyEnvVarOverrides(workspace);
+    
     // Apply precedence: CLI flags > global settings > defaults
     const settings: GlobalSettings = {
       ...DEFAULT_SETTINGS,
@@ -513,7 +516,55 @@ export class ConfigManager {
       ...cliFlags,
     };
     
-    return { workspace, settings };
+    return { workspace: effectiveWorkspace, settings };
+  }
+
+  /**
+   * Applies environment variable overrides to workspace configuration.
+   * 
+   * Supported environment variables:
+   * - `NOCO_BASE_URL` — overrides the workspace base URL
+   * - `NOCO_TOKEN` — overrides the `xc-token` header
+   * - `NOCO_BASE_ID` — overrides the default base ID
+   * 
+   * If no workspace exists but env vars provide enough info (at minimum
+   * `NOCO_BASE_URL`), an ephemeral workspace is created from env vars alone.
+   * 
+   * @param workspace - Current workspace configuration (may be undefined)
+   * @returns Workspace configuration with env var overrides applied
+   */
+  private applyEnvVarOverrides(workspace?: WorkspaceConfig): WorkspaceConfig | undefined {
+    const envBaseUrl = process.env.NOCO_BASE_URL;
+    const envToken = process.env.NOCO_TOKEN;
+    const envBaseId = process.env.NOCO_BASE_ID;
+
+    // No env vars set — return workspace as-is
+    if (!envBaseUrl && !envToken && !envBaseId) {
+      return workspace;
+    }
+
+    // If no workspace exists, create an ephemeral one from env vars
+    if (!workspace) {
+      if (!envBaseUrl) {
+        return undefined;
+      }
+      return {
+        baseUrl: envBaseUrl,
+        headers: envToken ? { "xc-token": envToken } : {},
+        baseId: envBaseId,
+        aliases: {},
+      };
+    }
+
+    // Overlay env vars onto existing workspace (env vars win)
+    return {
+      ...workspace,
+      baseUrl: envBaseUrl ?? workspace.baseUrl,
+      headers: envToken
+        ? { ...workspace.headers, "xc-token": envToken }
+        : workspace.headers,
+      baseId: envBaseId ?? workspace.baseId,
+    };
   }
 
   /**

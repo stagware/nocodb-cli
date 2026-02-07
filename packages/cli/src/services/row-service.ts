@@ -131,6 +131,37 @@ export class RowService {
   }
 
   /**
+   * Lists all rows from a table by auto-fetching every page.
+   * 
+   * Uses the SDK's `fetchAllPages` helper to iterate through all pages
+   * of results and return them in a single response. Useful for large
+   * datasets where you need every row.
+   * 
+   * @param tableId - The table ID to list rows from
+   * @param query - Optional query parameters (where, sort, fields, etc.)
+   * @param pageSize - Number of items per page (default: 1000)
+   * @returns Promise resolving to a ListResponse containing all rows
+   * 
+   * @example
+   * ```typescript
+   * // Fetch all rows
+   * const result = await rowService.listAll('tbl123');
+   * console.log(`Total: ${result.list.length} rows`);
+   * 
+   * // Fetch all with a filter
+   * const filtered = await rowService.listAll('tbl123', { where: '(Status,eq,Active)' });
+   * ```
+   */
+  async listAll(tableId: string, query?: Record<string, string>, pageSize = 1000): Promise<ListResponse<Row>> {
+    return this.client.fetchAllPages<Row>(
+      "GET",
+      `/api/v2/tables/${tableId}/records`,
+      { query },
+      pageSize,
+    );
+  }
+
+  /**
    * Creates a single row in a table with swagger validation.
    * 
    * @param tableId - The table ID to create the row in

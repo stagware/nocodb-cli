@@ -304,6 +304,82 @@ export class NocoClient {
       throw new NetworkError('Unknown error occurred', error as Error);
     }
   }
+
+  /**
+   * Fetches all pages of a paginated list endpoint and returns the combined results.
+   *
+   * Automatically handles offset-based pagination by making sequential requests
+   * until all rows are retrieved. Useful for large datasets where a single request
+   * would only return a partial result.
+   *
+   * @template T - The type of items in the list
+   * @param method - HTTP method (typically 'GET')
+   * @param path - API endpoint path
+   * @param options - Request options (query params, headers, etc.)
+   * @param pageSize - Number of items per page (default: 1000)
+   * @returns Promise resolving to a ListResponse containing all items
+   *
+   * @example
+   * ```typescript
+   * // Fetch all rows from a table
+   * const allRows = await client.fetchAllPages<Row>(
+   *   'GET',
+   *   '/api/v2/tables/tbl123/records'
+   * );
+   * console.log(`Total: ${allRows.list.length} rows`);
+   *
+   * // Fetch all with a filter
+   * const filtered = await client.fetchAllPages<Row>(
+   *   'GET',
+   *   '/api/v2/tables/tbl123/records',
+   *   { query: { where: '(Status,eq,Active)' } }
+   * );
+   * ```
+   */
+  async fetchAllPages<T>(
+    method: string,
+    path: string,
+    options: RequestOptions = {},
+    pageSize = 1000,
+  ): Promise<ListResponse<T>> {
+    const first = await this.request<ListResponse<T>>(method, path, {
+      ...options,
+      query: { ...options.query, limit: pageSize, offset: 0 },
+    });
+
+    const totalRows = first.pageInfo?.totalRows ?? 0;
+
+    // Short-circuit: everything fits in the first page
+    if (first.list.length === 0 || first.list.length >= totalRows || first.list.length < pageSize) {
+      return first;
+    }
+
+    // Need more pages
+    const allItems: T[] = [...first.list];
+    let offset = first.list.length;
+
+    while (offset < totalRows) {
+      const page = await this.request<ListResponse<T>>(method, path, {
+        ...options,
+        query: { ...options.query, limit: pageSize, offset },
+      });
+
+      if (page.list.length === 0) break; // safety: server returned nothing
+      allItems.push(...page.list);
+      offset += page.list.length;
+    }
+
+    return {
+      list: allItems,
+      pageInfo: {
+        totalRows: allItems.length,
+        page: 1,
+        pageSize: allItems.length,
+        isFirstPage: true,
+        isLastPage: true,
+      },
+    };
+  }
 }
 
 /**

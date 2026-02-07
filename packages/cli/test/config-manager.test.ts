@@ -569,6 +569,142 @@ describe("ConfigManager", () => {
     });
   });
 
+  describe("env var overrides", () => {
+    afterEach(() => {
+      // Restore original env vars
+      delete process.env.NOCO_BASE_URL;
+      delete process.env.NOCO_TOKEN;
+      delete process.env.NOCO_BASE_ID;
+    });
+
+    it("should override workspace baseUrl with NOCO_BASE_URL", () => {
+      configManager = new ConfigManager(tempDir);
+      configManager.addWorkspace("test", {
+        baseUrl: "https://original.nocodb.com",
+        headers: { "xc-token": "original-token" },
+        aliases: {},
+      });
+      configManager.setActiveWorkspace("test");
+
+      process.env.NOCO_BASE_URL = "https://env-override.nocodb.com";
+
+      const { workspace } = configManager.getEffectiveConfig();
+      expect(workspace?.baseUrl).toBe("https://env-override.nocodb.com");
+      // Token should remain from workspace
+      expect(workspace?.headers["xc-token"]).toBe("original-token");
+    });
+
+    it("should override workspace token with NOCO_TOKEN", () => {
+      configManager = new ConfigManager(tempDir);
+      configManager.addWorkspace("test", {
+        baseUrl: "https://original.nocodb.com",
+        headers: { "xc-token": "original-token" },
+        aliases: {},
+      });
+      configManager.setActiveWorkspace("test");
+
+      process.env.NOCO_TOKEN = "env-token";
+
+      const { workspace } = configManager.getEffectiveConfig();
+      expect(workspace?.headers["xc-token"]).toBe("env-token");
+      // baseUrl should remain from workspace
+      expect(workspace?.baseUrl).toBe("https://original.nocodb.com");
+    });
+
+    it("should override workspace baseId with NOCO_BASE_ID", () => {
+      configManager = new ConfigManager(tempDir);
+      configManager.addWorkspace("test", {
+        baseUrl: "https://original.nocodb.com",
+        headers: {},
+        baseId: "original-base-id",
+        aliases: {},
+      });
+      configManager.setActiveWorkspace("test");
+
+      process.env.NOCO_BASE_ID = "env-base-id";
+
+      const { workspace } = configManager.getEffectiveConfig();
+      expect(workspace?.baseId).toBe("env-base-id");
+    });
+
+    it("should create ephemeral workspace from env vars when no workspace exists", () => {
+      configManager = new ConfigManager(tempDir);
+      // No workspaces configured
+
+      process.env.NOCO_BASE_URL = "https://ci.nocodb.com";
+      process.env.NOCO_TOKEN = "ci-token";
+      process.env.NOCO_BASE_ID = "ci-base-id";
+
+      const { workspace } = configManager.getEffectiveConfig();
+      expect(workspace).toBeDefined();
+      expect(workspace?.baseUrl).toBe("https://ci.nocodb.com");
+      expect(workspace?.headers["xc-token"]).toBe("ci-token");
+      expect(workspace?.baseId).toBe("ci-base-id");
+    });
+
+    it("should return undefined workspace when only NOCO_TOKEN is set without workspace", () => {
+      configManager = new ConfigManager(tempDir);
+      // No workspaces configured, no NOCO_BASE_URL
+
+      process.env.NOCO_TOKEN = "ci-token";
+
+      const { workspace } = configManager.getEffectiveConfig();
+      // Cannot create ephemeral workspace without baseUrl
+      expect(workspace).toBeUndefined();
+    });
+
+    it("should not modify workspace when no env vars are set", () => {
+      configManager = new ConfigManager(tempDir);
+      configManager.addWorkspace("test", {
+        baseUrl: "https://original.nocodb.com",
+        headers: { "xc-token": "original-token" },
+        baseId: "original-base-id",
+        aliases: {},
+      });
+      configManager.setActiveWorkspace("test");
+
+      // No env vars set
+      const { workspace } = configManager.getEffectiveConfig();
+      expect(workspace?.baseUrl).toBe("https://original.nocodb.com");
+      expect(workspace?.headers["xc-token"]).toBe("original-token");
+      expect(workspace?.baseId).toBe("original-base-id");
+    });
+
+    it("should apply all three env vars simultaneously", () => {
+      configManager = new ConfigManager(tempDir);
+      configManager.addWorkspace("test", {
+        baseUrl: "https://original.nocodb.com",
+        headers: { "xc-token": "original-token", "x-custom": "keep-me" },
+        baseId: "original-base-id",
+        aliases: { users: "t123" },
+      });
+      configManager.setActiveWorkspace("test");
+
+      process.env.NOCO_BASE_URL = "https://env.nocodb.com";
+      process.env.NOCO_TOKEN = "env-token";
+      process.env.NOCO_BASE_ID = "env-base-id";
+
+      const { workspace } = configManager.getEffectiveConfig();
+      expect(workspace?.baseUrl).toBe("https://env.nocodb.com");
+      expect(workspace?.headers["xc-token"]).toBe("env-token");
+      expect(workspace?.headers["x-custom"]).toBe("keep-me");
+      expect(workspace?.baseId).toBe("env-base-id");
+      // Aliases should be preserved
+      expect(workspace?.aliases?.users).toBe("t123");
+    });
+
+    it("should create ephemeral workspace with only NOCO_BASE_URL (no token)", () => {
+      configManager = new ConfigManager(tempDir);
+
+      process.env.NOCO_BASE_URL = "https://public.nocodb.com";
+
+      const { workspace } = configManager.getEffectiveConfig();
+      expect(workspace).toBeDefined();
+      expect(workspace?.baseUrl).toBe("https://public.nocodb.com");
+      expect(workspace?.headers).toEqual({});
+    });
+  });
+
   describe("getConfigDir and getConfigPath", () => {
     it("should return correct config directory", () => {
       configManager = new ConfigManager(tempDir);

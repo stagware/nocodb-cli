@@ -56,6 +56,32 @@ nocodb alias delete tasks
 nocodb alias clear        # clear all aliases for active workspace
 ```
 
+## Environment Variables
+
+For CI/CD pipelines or ephemeral environments, you can configure the CLI entirely via environment variables. These override workspace config but are overridden by CLI flags.
+
+| Variable | Description |
+|----------|-------------|
+| `NOCO_BASE_URL` | NocoDB instance URL (e.g., `https://app.nocodb.com`) |
+| `NOCO_TOKEN` | API token (sets the `xc-token` header) |
+| `NOCO_BASE_ID` | Default base ID |
+
+```sh
+# Bash
+export NOCO_BASE_URL=https://app.nocodb.com
+export NOCO_TOKEN=your-api-token
+export NOCO_BASE_ID=p_abc123
+nocodb bases list
+
+# PowerShell
+$env:NOCO_BASE_URL="https://app.nocodb.com"
+$env:NOCO_TOKEN="your-api-token"
+$env:NOCO_BASE_ID="p_abc123"
+nocodb bases list
+```
+
+If no workspace is configured, the CLI creates an ephemeral workspace from env vars (requires at minimum `NOCO_BASE_URL`).
+
 ## Configure (Legacy/Global)
 
 These settings act as fallbacks if no workspace is active.
@@ -243,6 +269,8 @@ nocodb --base <baseId> api <tag> <operation> --data '{"key":"value"}'
 
 ```sh
 nocodb rows list <tableId>
+nocodb rows list <tableId> --all              # auto-paginate to fetch every row
+nocodb rows list <tableId> --all -q where='(Status,eq,Active)'
 nocodb rows read <tableId> <recordId>
 nocodb rows create <tableId> --data '{"Title":"Example"}'
 nocodb rows update <tableId> --data '{"Id":1,"Title":"Updated"}'
@@ -255,6 +283,36 @@ nocodb rows bulk-update <tableId> --data '[{"Id":1,"Title":"A1"},{"Id":2,"Title"
 nocodb rows bulk-upsert <tableId> --match Email --data '[{"Email":"alice@example.com","Title":"Alice"},{"Email":"bob@example.com","Title":"Bob"}]'
 nocodb rows bulk-delete <tableId> --data '[{"Id":1},{"Id":2}]'
 ```
+
+## Data Import / Export
+
+Export all rows from a table to a file or stdout:
+
+```sh
+nocodb data export <tableId>                          # JSON to stdout
+nocodb data export <tableId> --format csv             # CSV to stdout
+nocodb data export <tableId> --out ./rows.json        # JSON file
+nocodb data export <tableId> --out ./rows.csv         # CSV file (inferred from extension)
+nocodb data export <tableId> -q where='(Status,eq,Active)'  # with filters
+```
+
+Import rows from a CSV or JSON file into a table (requires `--base` for schema validation):
+
+```sh
+nocodb --base <baseId> data import <tableId> ./rows.json              # JSON array
+nocodb --base <baseId> data import <tableId> ./rows.csv               # CSV (inferred from extension)
+nocodb --base <baseId> data import <tableId> ./rows.csv --format csv  # explicit format
+```
+
+Upsert mode — match on a field to update existing rows and create new ones:
+
+```sh
+nocodb --base <baseId> data import <tableId> ./rows.csv --match Email
+nocodb --base <baseId> data import <tableId> ./rows.json --match Email --create-only
+nocodb --base <baseId> data import <tableId> ./rows.json --match Email --update-only
+```
+
+Export auto-paginates (fetches all rows). Import validates rows against the table's swagger schema and batches in groups of 1000.
 
 ## E2E test script
 

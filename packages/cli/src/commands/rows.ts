@@ -38,7 +38,8 @@ export function registerRowsCommands(program: Command, container: Container): vo
       .command("list")
       .argument("tableId", "Table id or alias")
       .option("-q, --query <key=value>", "Query string parameter", collect, [])
-  ).action(async (tableId: string, options: { query: string[] } & OutputOptions) => {
+      .option("-a, --all", "Fetch all pages (auto-paginate)")
+  ).action(async (tableId: string, options: { query: string[]; all?: boolean } & OutputOptions) => {
     try {
       const configManager = container.get<ConfigManager>("configManager");
       const createClient = container.get<Function>("createClient");
@@ -57,9 +58,12 @@ export function registerRowsCommands(program: Command, container: Container): vo
 
       // Parse query parameters
       const query = parseQuery(options.query || []);
+      const queryOrUndefined = Object.keys(query).length ? query : undefined;
 
-      // Call service
-      const result = await rowService.list(resolvedTableId, Object.keys(query).length ? query : undefined);
+      // Call service — use listAll when --all flag is set
+      const result = options.all
+        ? await rowService.listAll(resolvedTableId, queryOrUndefined)
+        : await rowService.list(resolvedTableId, queryOrUndefined);
 
       // Format output
       printResult(result, options);

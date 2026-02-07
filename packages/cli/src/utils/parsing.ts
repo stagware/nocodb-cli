@@ -70,6 +70,101 @@ export function parseKeyValue(input: string): [string, string] {
 }
 
 /**
+ * Parses a CSV string into an array of row objects.
+ * Handles quoted fields, escaped double-quotes, and newlines within quotes.
+ *
+ * @param csv - Raw CSV string (first row must be headers)
+ * @returns Array of objects keyed by header names
+ * @throws {Error} If the CSV has no headers or is empty
+ *
+ * @example
+ * ```typescript
+ * parseCsv('name,age\nAlice,30\nBob,25');
+ * // Returns: [{ name: "Alice", age: "30" }, { name: "Bob", age: "25" }]
+ * ```
+ */
+export function parseCsv(csv: string): Record<string, string>[] {
+  const lines = splitCsvLines(csv.trim());
+  if (lines.length === 0) throw new Error("CSV is empty");
+
+  const headers = parseCsvRow(lines[0]);
+  if (headers.length === 0) throw new Error("CSV has no headers");
+
+  const rows: Record<string, string>[] = [];
+  for (let i = 1; i < lines.length; i++) {
+    if (!lines[i].trim()) continue;
+    const values = parseCsvRow(lines[i]);
+    const row: Record<string, string> = {};
+    for (let j = 0; j < headers.length; j++) {
+      row[headers[j]] = values[j] ?? "";
+    }
+    rows.push(row);
+  }
+  return rows;
+}
+
+/**
+ * Splits CSV text into logical lines, respecting quoted fields that span multiple lines.
+ */
+function splitCsvLines(text: string): string[] {
+  const lines: string[] = [];
+  let current = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === '"') {
+      inQuotes = !inQuotes;
+      current += ch;
+    } else if ((ch === "\n" || ch === "\r") && !inQuotes) {
+      if (ch === "\r" && text[i + 1] === "\n") i++; // skip \r\n
+      lines.push(current);
+      current = "";
+    } else {
+      current += ch;
+    }
+  }
+  if (current) lines.push(current);
+  return lines;
+}
+
+/**
+ * Parses a single CSV row into an array of field values.
+ */
+function parseCsvRow(row: string): string[] {
+  const fields: string[] = [];
+  let current = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < row.length; i++) {
+    const ch = row[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (row[i + 1] === '"') {
+          current += '"';
+          i++; // skip escaped quote
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        current += ch;
+      }
+    } else {
+      if (ch === '"') {
+        inQuotes = true;
+      } else if (ch === ",") {
+        fields.push(current);
+        current = "";
+      } else {
+        current += ch;
+      }
+    }
+  }
+  fields.push(current);
+  return fields;
+}
+
+/**
  * Extracts base ID from command line arguments
  * @param argv - Array of command line arguments
  * @returns Base ID if found, undefined otherwise
