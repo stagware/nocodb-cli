@@ -1,6 +1,0 @@
-{
-  "title": "Test Hook",
-  "event": "after",
-  "operation": "insert",
-  "notification": "{\"type\":\"URL\",\"payload\":{\"method\":\"POST\",\"body\":\"{{ json data }}\",\"path\":\"https://httpbin.org/post\"}}"
-}
