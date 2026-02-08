@@ -8,6 +8,7 @@ import { Command } from "commander";
 import type { Container } from "../container.js";
 import type { MetaService } from "../services/meta-service.js";
 import { addOutputOptions } from "./helpers.js";
+import { validateEntityId } from "../utils/parsing.js";
 import {
   printResult, handleError, resolveServices,
   type OutputOptions,
@@ -101,9 +102,10 @@ Examples:
       const { client, resolvedId } = resolveServices(container, baseId);
       const metaService = container.get<Function>("metaService")(client) as MetaService;
 
-      // Resolve tableId alias too
+      // Resolve tableId alias too (validate first, consistent with resolveServices)
       const configManager = container.get<any>("configManager");
-      const resolvedTableId = configManager.resolveAlias(tableId).id;
+      const validatedTableId = validateEntityId(tableId, "table");
+      const resolvedTableId = configManager.resolveAlias(validatedTableId).id;
 
       const result = await metaService.duplicateTable(resolvedId!, resolvedTableId, buildOptions(options));
       printResult(result, options);

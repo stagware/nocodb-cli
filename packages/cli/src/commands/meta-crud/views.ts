@@ -6,13 +6,12 @@
 
 import { Command } from "commander";
 import type { Container } from "../../container.js";
-import type { ConfigManager } from "../../config/manager.js";
 import type { MetaService } from "../../services/meta-service.js";
-import type { NocoClient, ViewType } from "@nocodb/sdk";
+import type { ViewType } from "@nocodb/sdk";
 import { parseJsonInput } from "../../utils/parsing.js";
 import { addOutputOptions, addJsonInputOptions } from "../helpers.js";
 import {
-  printResult, handleError,
+  printResult, handleError, resolveServices,
   type OutputOptions, type JsonInputOptions,
 } from "../../utils/command-utils.js";
 
@@ -34,13 +33,8 @@ Examples:
   addOutputOptions(viewsCmd.command("list").argument("tableId", "Table id")).action(
     async (tableId: string, options: OutputOptions) => {
       try {
-        const configManager = container.get<ConfigManager>("configManager");
-        const createClient = container.get<Function>("createClient");
-        const metaServiceFactory = container.get<Function>("metaService");
-
-        const { workspace, settings } = configManager.getEffectiveConfig({});
-        const client = createClient(workspace, settings) as NocoClient;
-        const metaService = metaServiceFactory(client) as MetaService;
+        const { client } = resolveServices(container);
+        const metaService = container.get<Function>("metaService")(client) as MetaService;
 
         const result = await metaService.listViews(tableId);
         printResult(result, options);
@@ -54,13 +48,8 @@ Examples:
   addOutputOptions(viewsCmd.command("get").argument("tableId", "Table id").argument("viewId", "View id")).action(
     async (tableId: string, viewId: string, options: OutputOptions) => {
       try {
-        const configManager = container.get<ConfigManager>("configManager");
-        const createClient = container.get<Function>("createClient");
-        const metaServiceFactory = container.get<Function>("metaService");
-
-        const { workspace, settings } = configManager.getEffectiveConfig({});
-        const client = createClient(workspace, settings) as NocoClient;
-        const metaService = metaServiceFactory(client) as MetaService;
+        const { client } = resolveServices(container);
+        const metaService = container.get<Function>("metaService")(client) as MetaService;
 
         const result = await metaService.getView(tableId, viewId);
         printResult(result, options);
@@ -73,17 +62,12 @@ Examples:
   // Create view command — dispatches to v2 type-specific endpoints
   addOutputOptions(addJsonInputOptions(
     viewsCmd.command("create").argument("tableId", "Table id")
-      .option("--type <type>", "View type: grid, form, gallery, kanban, calendar (default: grid)")
+      .option("--type <type>", "View type: grid, form, gallery, kanban (default: grid)")
   )).action(
     async (tableId: string, options: JsonInputOptions & OutputOptions & { type?: string }) => {
       try {
-        const configManager = container.get<ConfigManager>("configManager");
-        const createClient = container.get<Function>("createClient");
-        const metaServiceFactory = container.get<Function>("metaService");
-
-        const { workspace, settings } = configManager.getEffectiveConfig({});
-        const client = createClient(workspace, settings) as NocoClient;
-        const metaService = metaServiceFactory(client) as MetaService;
+        const { client } = resolveServices(container);
+        const metaService = container.get<Function>("metaService")(client) as MetaService;
 
         const body = await parseJsonInput(options.data, options.dataFile);
         const viewType = (options.type || 'grid') as ViewType;
@@ -100,9 +84,10 @@ Examples:
             result = await metaService.createKanbanView(tableId, body as any);
             break;
           case 'grid':
-          default:
             result = await metaService.createGridView(tableId, body as any);
             break;
+          default:
+            throw new Error(`Unsupported view type '${viewType}'. Use: grid, form, gallery, kanban`);
         }
         printResult(result, options);
       } catch (err) {
@@ -115,13 +100,8 @@ Examples:
   addOutputOptions(addJsonInputOptions(viewsCmd.command("update").argument("viewId", "View id"))).action(
     async (viewId: string, options: JsonInputOptions & OutputOptions) => {
       try {
-        const configManager = container.get<ConfigManager>("configManager");
-        const createClient = container.get<Function>("createClient");
-        const metaServiceFactory = container.get<Function>("metaService");
-
-        const { workspace, settings } = configManager.getEffectiveConfig({});
-        const client = createClient(workspace, settings) as NocoClient;
-        const metaService = metaServiceFactory(client) as MetaService;
+        const { client } = resolveServices(container);
+        const metaService = container.get<Function>("metaService")(client) as MetaService;
 
         const body = await parseJsonInput(options.data, options.dataFile);
         const result = await metaService.updateView(viewId, body as any);
@@ -136,13 +116,8 @@ Examples:
   addOutputOptions(viewsCmd.command("delete").argument("viewId", "View id")).action(
     async (viewId: string, options: OutputOptions) => {
       try {
-        const configManager = container.get<ConfigManager>("configManager");
-        const createClient = container.get<Function>("createClient");
-        const metaServiceFactory = container.get<Function>("metaService");
-
-        const { workspace, settings } = configManager.getEffectiveConfig({});
-        const client = createClient(workspace, settings) as NocoClient;
-        const metaService = metaServiceFactory(client) as MetaService;
+        const { client } = resolveServices(container);
+        const metaService = container.get<Function>("metaService")(client) as MetaService;
 
         const result = await metaService.deleteView(viewId);
         printResult(result, options);
@@ -165,13 +140,8 @@ Examples:
   ).action(
     async (viewId: string, options: OutputOptions & { viewType: string }) => {
       try {
-        const configManager = container.get<ConfigManager>("configManager");
-        const createClient = container.get<Function>("createClient");
-        const metaServiceFactory = container.get<Function>("metaService");
-
-        const { workspace, settings } = configManager.getEffectiveConfig({});
-        const client = createClient(workspace, settings) as NocoClient;
-        const metaService = metaServiceFactory(client) as MetaService;
+        const { client } = resolveServices(container);
+        const metaService = container.get<Function>("metaService")(client) as MetaService;
 
         let result;
         switch (options.viewType) {
@@ -185,7 +155,7 @@ Examples:
             result = await metaService.getKanbanView(viewId);
             break;
           default:
-            throw new Error(`Unsupported view type '${options.viewType}'. Use: form, gallery, kanban`);
+            throw new Error(`Unsupported view type '${options.viewType}' for config get. Use: form, gallery, kanban (grid has no read endpoint; use 'config update' to set grid properties)`);
         }
         printResult(result, options);
       } catch (err) {
@@ -205,13 +175,8 @@ Examples:
   ).action(
     async (viewId: string, options: JsonInputOptions & OutputOptions & { viewType: string }) => {
       try {
-        const configManager = container.get<ConfigManager>("configManager");
-        const createClient = container.get<Function>("createClient");
-        const metaServiceFactory = container.get<Function>("metaService");
-
-        const { workspace, settings } = configManager.getEffectiveConfig({});
-        const client = createClient(workspace, settings) as NocoClient;
-        const metaService = metaServiceFactory(client) as MetaService;
+        const { client } = resolveServices(container);
+        const metaService = container.get<Function>("metaService")(client) as MetaService;
 
         const body = await parseJsonInput(options.data, options.dataFile);
         let result;
@@ -250,13 +215,8 @@ Examples:
   ).action(
     async (viewId: string, options: OutputOptions) => {
       try {
-        const configManager = container.get<ConfigManager>("configManager");
-        const createClient = container.get<Function>("createClient");
-        const metaServiceFactory = container.get<Function>("metaService");
-
-        const { workspace, settings } = configManager.getEffectiveConfig({});
-        const client = createClient(workspace, settings) as NocoClient;
-        const metaService = metaServiceFactory(client) as MetaService;
+        const { client } = resolveServices(container);
+        const metaService = container.get<Function>("metaService")(client) as MetaService;
 
         const result = await metaService.listViewColumns(viewId);
         printResult(result, options);

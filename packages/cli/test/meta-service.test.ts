@@ -219,7 +219,7 @@ describe('MetaService', () => {
       const result = await metaService.createView('tbl123', viewData);
 
       expect(result).toEqual(mockResponse);
-      expect(mockClient.request).toHaveBeenCalledWith('POST', '/api/v1/db/meta/tables/tbl123/grids', { body: viewData });
+      expect(mockClient.request).toHaveBeenCalledWith('POST', '/api/v2/meta/tables/tbl123/grids', { body: viewData });
     });
 
     it('should create a form view with explicit type', async () => {
@@ -236,7 +236,7 @@ describe('MetaService', () => {
       const result = await metaService.createView('tbl123', viewData, 'form');
 
       expect(result).toEqual(mockResponse);
-      expect(mockClient.request).toHaveBeenCalledWith('POST', '/api/v1/db/meta/tables/tbl123/forms', { body: viewData });
+      expect(mockClient.request).toHaveBeenCalledWith('POST', '/api/v2/meta/tables/tbl123/forms', { body: viewData });
     });
 
     it('should get a view by ID via list-and-filter', async () => {

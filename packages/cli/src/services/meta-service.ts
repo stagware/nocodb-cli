@@ -328,12 +328,11 @@ export class MetaService {
   /**
    * Create a new view in a table.
    * 
-   * NocoDB uses type-specific v1 endpoints for view creation:
-   * - Grid: POST /api/v1/db/meta/tables/{tableId}/grids
-   * - Form: POST /api/v1/db/meta/tables/{tableId}/forms
-   * - Gallery: POST /api/v1/db/meta/tables/{tableId}/galleries
-   * - Kanban: POST /api/v1/db/meta/tables/{tableId}/kanbans
-   * - Calendar: POST /api/v1/db/meta/tables/{tableId}/calendars
+   * Delegates to v2 type-specific endpoints:
+   * - Grid: POST /api/v2/meta/tables/{tableId}/grids
+   * - Form: POST /api/v2/meta/tables/{tableId}/forms
+   * - Gallery: POST /api/v2/meta/tables/{tableId}/galleries
+   * - Kanban: POST /api/v2/meta/tables/{tableId}/kanbans
    * 
    * @param tableId - Table ID
    * @param data - View data (title, etc.)
@@ -348,15 +347,18 @@ export class MetaService {
    * ```
    */
   async createView(tableId: string, data: Partial<View>, type: ViewType = 'grid'): Promise<View> {
-    const typeToEndpoint: Record<string, string> = {
-      grid: 'grids',
-      form: 'forms',
-      gallery: 'galleries',
-      kanban: 'kanbans',
-      calendar: 'calendars',
-    };
-    const endpoint = typeToEndpoint[type] || 'grids';
-    return this.client.request<View>('POST', `/api/v1/db/meta/tables/${tableId}/${endpoint}`, { body: data });
+    switch (type) {
+      case 'form':
+        return this.createFormView(tableId, data);
+      case 'gallery':
+        return this.createGalleryView(tableId, data);
+      case 'kanban':
+        return this.createKanbanView(tableId, data);
+      case 'grid':
+        return this.createGridView(tableId, data);
+      default:
+        throw new Error(`Unsupported view type '${type}'. Use: grid, form, gallery, kanban`);
+    }
   }
 
   /**
