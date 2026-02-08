@@ -17,9 +17,64 @@ export interface Base {
   type?: string;
   /** Whether this is a meta base */
   is_meta?: boolean;
+  /** Base description */
+  description?: string;
+  /** Base color (hex string) */
+  color?: string;
+  /** Display order of the base */
+  order?: number;
+  /** Base status */
+  status?: string;
+  /** Table name prefix */
+  prefix?: string;
+  /** Whether the base is deleted (soft delete) */
+  deleted?: boolean;
+  /** Additional metadata */
+  meta?: Record<string, unknown> | string | null;
+  /** Data sources associated with this base */
+  sources?: Source[];
+  /** Whether the base is external */
+  external?: boolean;
   /** Timestamp when the base was created */
   created_at?: string;
   /** Timestamp when the base was last updated */
+  updated_at?: string;
+}
+
+/**
+ * Supported source/connection types in NocoDB.
+ */
+export type SourceType = 'mysql2' | 'pg' | 'sqlite3' | 'mssql' | 'snowflake' | 'databricks';
+
+/**
+ * Represents a data source (database connection) within a NocoDB base.
+ */
+export interface Source {
+  /** Unique identifier for the source */
+  id: string;
+  /** ID of the base this source belongs to */
+  base_id: string;
+  /** Display alias for the source */
+  alias?: string;
+  /** Source type (database driver) */
+  type?: SourceType | string;
+  /** Whether the source is enabled */
+  enabled?: boolean;
+  /** Whether this is the meta source */
+  is_meta?: boolean;
+  /** Connection configuration (encrypted) */
+  config?: Record<string, unknown> | string | null;
+  /** Column name inflection rule */
+  inflection_column?: string;
+  /** Table name inflection rule */
+  inflection_table?: string;
+  /** Display order of the source */
+  order?: number;
+  /** Additional metadata */
+  meta?: Record<string, unknown> | string | null;
+  /** Timestamp when the source was created */
+  created_at?: string;
+  /** Timestamp when the source was last updated */
   updated_at?: string;
 }
 

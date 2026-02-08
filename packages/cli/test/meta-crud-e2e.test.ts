@@ -190,7 +190,7 @@ function startServer() {
     }
 
     // --- Me (auth check) ---
-    if (url.pathname === "/api/v1/auth/user/me" && req.method === "GET") {
+    if (url.pathname === "/api/v2/auth/user/me" && req.method === "GET") {
       res.writeHead(200, { "content-type": "application/json" });
       res.end(JSON.stringify({ id: "usr1", email: "test@example.com", display_name: "Test User", roles: "owner" }));
       return;
@@ -774,7 +774,7 @@ describe("me e2e", () => {
 
       await runCli(["me", "--pretty"], configDir);
 
-      expect(calls.some((c) => c.method === "GET" && c.path === "/api/v1/auth/user/me")).toBe(true);
+      expect(calls.some((c) => c.method === "GET" && c.path === "/api/v2/auth/user/me")).toBe(true);
       const output = logs.join("\n");
       expect(output).toContain("test@example.com");
       expect(output).toContain("Test User");

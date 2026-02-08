@@ -1,6 +1,7 @@
 import { NocoClient } from '@nocodb/sdk';
 import type {
   Base,
+  Source,
   Table,
   View,
   ViewType,
@@ -143,6 +144,64 @@ export class MetaService {
    */
   async deleteBase(baseId: string): Promise<void> {
     return this.client.request<void>('DELETE', `/api/v2/meta/bases/${baseId}`);
+  }
+
+  // ============================================================================
+  // Source (Data Source) Operations
+  // ============================================================================
+
+  /**
+   * List all data sources for a base.
+   *
+   * @param baseId - Base ID
+   * @returns Paginated list of sources
+   */
+  async listSources(baseId: string): Promise<ListResponse<Source>> {
+    return this.client.request<ListResponse<Source>>('GET', `/api/v2/meta/bases/${baseId}/sources`);
+  }
+
+  /**
+   * Create a new data source in a base.
+   *
+   * @param baseId - Base ID
+   * @param data - Source data (alias, type, config, etc.)
+   * @returns Created source
+   */
+  async createSource(baseId: string, data: Partial<Source>): Promise<Source> {
+    return this.client.request<Source>('POST', `/api/v2/meta/bases/${baseId}/sources`, { body: data });
+  }
+
+  /**
+   * Get a data source by ID.
+   *
+   * @param baseId - Base ID
+   * @param sourceId - Source ID
+   * @returns Source details
+   */
+  async getSource(baseId: string, sourceId: string): Promise<Source> {
+    return this.client.request<Source>('GET', `/api/v2/meta/bases/${baseId}/sources/${sourceId}`);
+  }
+
+  /**
+   * Update a data source.
+   *
+   * @param baseId - Base ID
+   * @param sourceId - Source ID
+   * @param data - Updated source data
+   * @returns Updated source
+   */
+  async updateSource(baseId: string, sourceId: string, data: Partial<Source>): Promise<Source> {
+    return this.client.request<Source>('PATCH', `/api/v2/meta/bases/${baseId}/sources/${sourceId}`, { body: data });
+  }
+
+  /**
+   * Delete a data source.
+   *
+   * @param baseId - Base ID
+   * @param sourceId - Source ID
+   */
+  async deleteSource(baseId: string, sourceId: string): Promise<void> {
+    return this.client.request<void>('DELETE', `/api/v2/meta/bases/${baseId}/sources/${sourceId}`);
   }
 
   // ============================================================================
@@ -681,31 +740,34 @@ export class MetaService {
   // ============================================================================
 
   /**
-   * List all API tokens for the authenticated user.
+   * List all API tokens for a base.
    *
+   * @param baseId - Base ID
    * @returns List of API tokens
    */
-  async listTokens(): Promise<ListResponse<ApiToken>> {
-    return this.client.request<ListResponse<ApiToken>>('GET', '/api/v1/tokens');
+  async listTokens(baseId: string): Promise<ListResponse<ApiToken>> {
+    return this.client.request<ListResponse<ApiToken>>('GET', `/api/v2/meta/bases/${baseId}/api-tokens`);
   }
 
   /**
-   * Create a new API token.
+   * Create a new API token for a base.
    *
+   * @param baseId - Base ID
    * @param data - Token data (description is recommended)
    * @returns Created token (includes the token string)
    */
-  async createToken(data: Partial<ApiToken>): Promise<ApiToken> {
-    return this.client.request<ApiToken>('POST', '/api/v1/tokens', { body: data });
+  async createToken(baseId: string, data: Partial<ApiToken>): Promise<ApiToken> {
+    return this.client.request<ApiToken>('POST', `/api/v2/meta/bases/${baseId}/api-tokens`, { body: data });
   }
 
   /**
-   * Delete an API token.
+   * Delete an API token from a base.
    *
-   * @param token - The token string to delete
+   * @param baseId - Base ID
+   * @param tokenId - Token ID to delete
    */
-  async deleteToken(token: string): Promise<void> {
-    return this.client.request<void>('DELETE', `/api/v1/tokens/${encodeURIComponent(token)}`);
+  async deleteToken(baseId: string, tokenId: string): Promise<void> {
+    return this.client.request<void>('DELETE', `/api/v2/meta/bases/${baseId}/api-tokens/${tokenId}`);
   }
 
   // ============================================================================

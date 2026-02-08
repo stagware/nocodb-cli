@@ -20,23 +20,25 @@ import {
  * @param container - Dependency injection container
  */
 export function registerTokensCommands(program: Command, container: Container): void {
-  const tokensCmd = program.command("tokens").description("Manage API tokens")
+  const tokensCmd = program.command("tokens").description("Manage API tokens (base-scoped)")
     .addHelpText("after", `
 Examples:
-  $ nocodb tokens list
-  $ nocodb tokens create -d '{"description":"CI/CD token"}'
-  $ nocodb tokens delete xc-auth-token-string
+  $ nocodb tokens list p_abc123
+  $ nocodb tokens create p_abc123 -d '{"description":"CI/CD token"}'
+  $ nocodb tokens delete p_abc123 tok_xyz789
 `);
 
   // List tokens command
   addOutputOptions(
-    tokensCmd.command("list")
-  ).action(async (options: OutputOptions) => {
+    tokensCmd
+      .command("list")
+      .argument("baseId", "Base id or alias")
+  ).action(async (baseId: string, options: OutputOptions) => {
     try {
-      const { client } = resolveServices(container);
+      const { client, resolvedId } = resolveServices(container, baseId);
       const metaService = container.get<Function>("metaService")(client) as MetaService;
 
-      const result = await metaService.listTokens();
+      const result = await metaService.listTokens(resolvedId!);
       printResult(result, options);
     } catch (err) {
       handleError(err);
@@ -46,16 +48,18 @@ Examples:
   // Create token command
   addOutputOptions(
     addJsonInputOptions(
-      tokensCmd.command("create"),
+      tokensCmd
+        .command("create")
+        .argument("baseId", "Base id or alias"),
       "Token JSON body (e.g. {\"description\":\"my token\"})"
     )
-  ).action(async (options: JsonInputOptions & OutputOptions) => {
+  ).action(async (baseId: string, options: JsonInputOptions & OutputOptions) => {
     try {
-      const { client } = resolveServices(container);
+      const { client, resolvedId } = resolveServices(container, baseId);
       const metaService = container.get<Function>("metaService")(client) as MetaService;
 
       const body = await parseJsonInput(options.data, options.dataFile);
-      const result = await metaService.createToken(body as any);
+      const result = await metaService.createToken(resolvedId!, body as any);
       printResult(result, options);
     } catch (err) {
       handleError(err);
@@ -66,13 +70,14 @@ Examples:
   addOutputOptions(
     tokensCmd
       .command("delete")
-      .argument("token", "API token string to delete")
-  ).action(async (token: string, options: OutputOptions) => {
+      .argument("baseId", "Base id or alias")
+      .argument("tokenId", "Token ID to delete")
+  ).action(async (baseId: string, tokenId: string, options: OutputOptions) => {
     try {
-      const { client } = resolveServices(container);
+      const { client, resolvedId } = resolveServices(container, baseId);
       const metaService = container.get<Function>("metaService")(client) as MetaService;
 
-      const result = await metaService.deleteToken(token);
+      const result = await metaService.deleteToken(resolvedId!, tokenId);
       printResult(result, options);
     } catch (err) {
       handleError(err);

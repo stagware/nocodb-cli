@@ -498,21 +498,32 @@ function testHook(hookId) {
   return runCliAllowFail(["hooks", "test", hookId]);
 }
 
-// --- Tokens helpers ---
-function listTokens() {
-  const out = runCli(["tokens", "list", "--pretty"]);
+// --- Tokens helpers (v2 base-scoped) ---
+function listTokens(baseId) {
+  const out = runCli(["tokens", "list", baseId, "--pretty"]);
   return jsonParseOrThrow(out);
 }
 
-function createToken(data) {
+function createToken(baseId, data) {
   const tmp = path.join(ROOT, "scripts", `token-create.json`);
   writeJson(tmp, data);
-  const out = runCli(["tokens", "create", "--data-file", tmp, "--pretty"]);
+  const out = runCli(["tokens", "create", baseId, "--data-file", tmp, "--pretty"]);
   return jsonParseOrThrow(out);
 }
 
-function deleteToken(token) {
-  return runCliAllowFail(["tokens", "delete", token]);
+function deleteTokenById(baseId, tokenId) {
+  return runCliAllowFail(["tokens", "delete", baseId, tokenId]);
+}
+
+// --- Sources helpers ---
+function listSources(baseId) {
+  const out = runCli(["sources", "list", baseId, "--pretty"]);
+  return jsonParseOrThrow(out);
+}
+
+function getSource(baseId, sourceId) {
+  const out = runCli(["sources", "get", baseId, sourceId, "--pretty"]);
+  return jsonParseOrThrow(out);
 }
 
 // --- Users helpers ---
@@ -630,7 +641,7 @@ function writeReportMarkdown(report) {
     "workspace", "bases", "tablesExtra", "views", "filters", "sorts",
     "upsert", "bulkOps", "bulkUpsert", "request", "metaEndpoints",
     "dynamicApi", "storageUpload", "schemaIntrospect", "me", "selectFilter",
-    "hooks", "users",
+    "hooks", "tokens", "sources", "users",
   ];
   for (const key of featureKeys) {
     const result = report[key];
@@ -1498,6 +1509,38 @@ async function main() {
   }
 
   // =========================================================================
+  // NEW: Sources (Data Sources) — list + get
+  // =========================================================================
+  console.log("Testing sources list/get...");
+  try {
+    const sources = listSources(BASE_ID);
+    assert(sources.list !== undefined, "sources list should return a list");
+    assert(sources.list.length > 0, "sources list should have at least one source (default)");
+    const firstSource = sources.list[0];
+    assert(firstSource.id !== undefined, "source should have an id");
+    // Get the first source by id
+    const sourceDetail = getSource(BASE_ID, firstSource.id);
+    assert(sourceDetail.id === firstSource.id, "sources get should return correct source");
+    report.sources = { status: "passed" };
+  } catch (err) {
+    report.sources = { status: "failed", error: err.message || String(err) };
+    console.log("Sources tests failed:", report.sources.error);
+  }
+
+  // =========================================================================
+  // NEW: Tokens (v2 base-scoped) — list only (create/delete may require session auth)
+  // =========================================================================
+  console.log("Testing tokens list (v2 base-scoped)...");
+  try {
+    const tokens = listTokens(BASE_ID);
+    assert(tokens.list !== undefined, "tokens list should return a list");
+    report.tokens = { status: "passed" };
+  } catch (err) {
+    report.tokens = { status: "failed", error: err.message || String(err) };
+    console.log("Tokens tests failed:", report.tokens.error);
+  }
+
+  // =========================================================================
   // NEW: Users (Base Collaborators) — list only
   // =========================================================================
   console.log("Testing users list...");
@@ -1548,7 +1591,7 @@ async function main() {
     "workspace", "bases", "tablesExtra", "views", "filters", "sorts",
     "upsert", "bulkOps", "bulkUpsert", "request", "metaEndpoints",
     "dynamicApi", "storageUpload", "schemaIntrospect", "me", "selectFilter",
-    "hooks", "users",
+    "hooks", "tokens", "sources", "users",
   ];
   const featurePassed = featureTests.filter((k) => report[k]?.status === "passed").length;
   const featureFailed = featureTests.filter((k) => report[k]?.status === "failed").length;

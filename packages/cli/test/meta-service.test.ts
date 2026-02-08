@@ -585,6 +585,115 @@ describe('MetaService', () => {
   });
 
   // ============================================================================
+  // Source (Data Source) Operations Tests
+  // ============================================================================
+
+  describe('Source Operations', () => {
+    it('should list sources for a base', async () => {
+      const mockResponse = {
+        list: [
+          { id: 'ds_1', base_id: 'base123', alias: 'default' },
+          { id: 'ds_2', base_id: 'base123', alias: 'secondary' },
+        ],
+        pageInfo: { totalRows: 2 },
+      };
+
+      vi.mocked(mockClient.request).mockResolvedValue(mockResponse);
+
+      const result = await metaService.listSources('base123');
+
+      expect(result).toEqual(mockResponse);
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v2/meta/bases/base123/sources');
+    });
+
+    it('should create a source', async () => {
+      const sourceData = { alias: 'my-pg', type: 'pg' };
+      const mockResponse = { id: 'ds_new', base_id: 'base123', alias: 'my-pg', type: 'pg' };
+
+      vi.mocked(mockClient.request).mockResolvedValue(mockResponse);
+
+      const result = await metaService.createSource('base123', sourceData as any);
+
+      expect(result).toEqual(mockResponse);
+      expect(mockClient.request).toHaveBeenCalledWith('POST', '/api/v2/meta/bases/base123/sources', { body: sourceData });
+    });
+
+    it('should get a source by ID', async () => {
+      const mockResponse = { id: 'ds_1', base_id: 'base123', alias: 'default' };
+
+      vi.mocked(mockClient.request).mockResolvedValue(mockResponse);
+
+      const result = await metaService.getSource('base123', 'ds_1');
+
+      expect(result).toEqual(mockResponse);
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v2/meta/bases/base123/sources/ds_1');
+    });
+
+    it('should update a source', async () => {
+      const updateData = { alias: 'renamed' };
+      const mockResponse = { id: 'ds_1', base_id: 'base123', alias: 'renamed' };
+
+      vi.mocked(mockClient.request).mockResolvedValue(mockResponse);
+
+      const result = await metaService.updateSource('base123', 'ds_1', updateData as any);
+
+      expect(result).toEqual(mockResponse);
+      expect(mockClient.request).toHaveBeenCalledWith('PATCH', '/api/v2/meta/bases/base123/sources/ds_1', { body: updateData });
+    });
+
+    it('should delete a source', async () => {
+      vi.mocked(mockClient.request).mockResolvedValue(undefined);
+
+      await metaService.deleteSource('base123', 'ds_1');
+
+      expect(mockClient.request).toHaveBeenCalledWith('DELETE', '/api/v2/meta/bases/base123/sources/ds_1');
+    });
+  });
+
+  // ============================================================================
+  // API Token Operations Tests (v2 base-scoped)
+  // ============================================================================
+
+  describe('Token Operations (v2)', () => {
+    it('should list tokens for a base', async () => {
+      const mockResponse = {
+        list: [
+          { id: 'tok_1', description: 'CI token' },
+          { id: 'tok_2', description: 'Dev token' },
+        ],
+        pageInfo: { totalRows: 2 },
+      };
+
+      vi.mocked(mockClient.request).mockResolvedValue(mockResponse);
+
+      const result = await metaService.listTokens('base123');
+
+      expect(result).toEqual(mockResponse);
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v2/meta/bases/base123/api-tokens');
+    });
+
+    it('should create a token for a base', async () => {
+      const tokenData = { description: 'CI/CD token' };
+      const mockResponse = { id: 'tok_new', token: 'xc-abc123', description: 'CI/CD token' };
+
+      vi.mocked(mockClient.request).mockResolvedValue(mockResponse);
+
+      const result = await metaService.createToken('base123', tokenData as any);
+
+      expect(result).toEqual(mockResponse);
+      expect(mockClient.request).toHaveBeenCalledWith('POST', '/api/v2/meta/bases/base123/api-tokens', { body: tokenData });
+    });
+
+    it('should delete a token from a base', async () => {
+      vi.mocked(mockClient.request).mockResolvedValue(undefined);
+
+      await metaService.deleteToken('base123', 'tok_1');
+
+      expect(mockClient.request).toHaveBeenCalledWith('DELETE', '/api/v2/meta/bases/base123/api-tokens/tok_1');
+    });
+  });
+
+  // ============================================================================
   // Swagger Operations Tests
   // ============================================================================
 

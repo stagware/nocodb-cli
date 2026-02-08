@@ -5,6 +5,7 @@ import { ofetch, FetchError } from "ofetch";
 // Import types for internal use
 import type {
   Base,
+  Source,
   Table,
   View,
   Column,
@@ -33,6 +34,8 @@ import {
 // Export entity types
 export type {
   Base,
+  Source,
+  SourceType,
   Table,
   View,
   ViewType,
@@ -582,6 +585,68 @@ export class MetaApi {
     return this.client.request<void>("DELETE", `/api/v2/meta/bases/${baseId}`);
   }
 
+  // ── Sources (Data Sources) ─────────────────────────────────────────
+
+  /**
+   * Lists all data sources for a base.
+   *
+   * @param baseId - ID of the base
+   * @returns Promise resolving to paginated list of sources
+   * @throws {NotFoundError} If the base doesn't exist
+   */
+  listSources(baseId: string): Promise<ListResponse<Source>> {
+    return this.client.request<ListResponse<Source>>("GET", `/api/v2/meta/bases/${baseId}/sources`);
+  }
+
+  /**
+   * Creates a new data source in a base.
+   *
+   * @param baseId - ID of the base
+   * @param body - Source properties (alias, type, config, etc.)
+   * @returns Promise resolving to the created source
+   * @throws {ValidationError} If the request data is invalid
+   */
+  createSource(baseId: string, body: Partial<Source>): Promise<Source> {
+    return this.client.request<Source>("POST", `/api/v2/meta/bases/${baseId}/sources`, { body });
+  }
+
+  /**
+   * Gets detailed information about a specific data source.
+   *
+   * @param baseId - ID of the base
+   * @param sourceId - ID of the source to retrieve
+   * @returns Promise resolving to the source details
+   * @throws {NotFoundError} If the source doesn't exist
+   */
+  getSource(baseId: string, sourceId: string): Promise<Source> {
+    return this.client.request<Source>("GET", `/api/v2/meta/bases/${baseId}/sources/${sourceId}`);
+  }
+
+  /**
+   * Updates a data source's properties.
+   *
+   * @param baseId - ID of the base
+   * @param sourceId - ID of the source to update
+   * @param body - Properties to update
+   * @returns Promise resolving to the updated source
+   * @throws {NotFoundError} If the source doesn't exist
+   */
+  updateSource(baseId: string, sourceId: string, body: Partial<Source>): Promise<Source> {
+    return this.client.request<Source>("PATCH", `/api/v2/meta/bases/${baseId}/sources/${sourceId}`, { body });
+  }
+
+  /**
+   * Deletes a data source permanently.
+   *
+   * @param baseId - ID of the base
+   * @param sourceId - ID of the source to delete
+   * @returns Promise that resolves when deletion is complete
+   * @throws {NotFoundError} If the source doesn't exist
+   */
+  deleteSource(baseId: string, sourceId: string): Promise<void> {
+    return this.client.request<void>("DELETE", `/api/v2/meta/bases/${baseId}/sources/${sourceId}`);
+  }
+
   /**
    * Lists all tables in a base.
    * 
@@ -1100,32 +1165,35 @@ export class MetaApi {
   // ── API Tokens ────────────────────────────────────────────────────
 
   /**
-   * Lists all API tokens for the authenticated user.
+   * Lists all API tokens for a base.
    *
+   * @param baseId - ID of the base
    * @returns Promise resolving to a list of API tokens
    */
-  listTokens(): Promise<ListResponse<ApiToken>> {
-    return this.client.request<ListResponse<ApiToken>>("GET", "/api/v1/tokens");
+  listTokens(baseId: string): Promise<ListResponse<ApiToken>> {
+    return this.client.request<ListResponse<ApiToken>>("GET", `/api/v2/meta/bases/${baseId}/api-tokens`);
   }
 
   /**
-   * Creates a new API token.
+   * Creates a new API token for a base.
    *
+   * @param baseId - ID of the base
    * @param body - Token properties (description is recommended)
    * @returns Promise resolving to the created token (includes the token string)
    */
-  createToken(body: Partial<ApiToken>): Promise<ApiToken> {
-    return this.client.request<ApiToken>("POST", "/api/v1/tokens", { body });
+  createToken(baseId: string, body: Partial<ApiToken>): Promise<ApiToken> {
+    return this.client.request<ApiToken>("POST", `/api/v2/meta/bases/${baseId}/api-tokens`, { body });
   }
 
   /**
-   * Deletes an API token.
+   * Deletes an API token from a base.
    *
-   * @param token - The token string to delete
+   * @param baseId - ID of the base
+   * @param tokenId - ID of the token to delete
    * @returns Promise that resolves when deletion is complete
    */
-  deleteToken(token: string): Promise<void> {
-    return this.client.request<void>("DELETE", `/api/v1/tokens/${encodeURIComponent(token)}`);
+  deleteToken(baseId: string, tokenId: string): Promise<void> {
+    return this.client.request<void>("DELETE", `/api/v2/meta/bases/${baseId}/api-tokens/${tokenId}`);
   }
 
   // ── Base Users (Collaborators) ────────────────────────────────────

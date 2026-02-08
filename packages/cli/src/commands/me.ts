@@ -25,7 +25,7 @@ Examples:
   ).action(async (options: OutputOptions) => {
     try {
       const { client } = resolveServices(container);
-      const result = await client.request("GET", "/api/v1/auth/user/me");
+      const result = await client.request("GET", "/api/v2/auth/user/me");
       printResult(result, options);
     } catch (err) {
       handleError(err);

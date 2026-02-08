@@ -260,6 +260,28 @@ nocodb storage upload ./photo.png
 nocodb storage upload ./doc.pdf --pretty
 ```
 
+## Sources (Data Sources)
+
+Manage data sources (database connections) within a base:
+
+```sh
+nocodb sources list <baseId>
+nocodb sources get <baseId> <sourceId>
+nocodb sources create <baseId> --data '{"alias":"my-pg","type":"pg","config":{...}}'
+nocodb sources update <baseId> <sourceId> --data '{"alias":"renamed"}'
+nocodb sources delete <baseId> <sourceId>
+```
+
+## Tokens (Base-Scoped)
+
+API tokens are scoped to a base (v2 API):
+
+```sh
+nocodb tokens list <baseId>
+nocodb tokens create <baseId> -d '{"description":"CI/CD token"}'
+nocodb tokens delete <baseId> <tokenId>
+```
+
 ## Raw requests
 
 Use this to call any endpoint directly.

@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import type {
   // Entity types
   Base,
+  Source,
+  SourceType,
   Table,
   View,
   ViewType,
@@ -81,6 +83,11 @@ describe('Type Exports', () => {
       direction: 'asc',
     };
     
+    const source: Source = {
+      id: 'ds_123',
+      base_id: 'base_123',
+    };
+    
     const row: Row = {
       Id: 1,
       test_column: 'test value',
@@ -88,6 +95,7 @@ describe('Type Exports', () => {
     
     // Verify objects are defined
     expect(base).toBeDefined();
+    expect(source).toBeDefined();
     expect(table).toBeDefined();
     expect(view).toBeDefined();
     expect(column).toBeDefined();
@@ -137,10 +145,12 @@ describe('Type Exports', () => {
     const viewType: ViewType = 'grid';
     const columnType: ColumnType = 'SingleLineText';
     const comparisonOp: ComparisonOperator = 'eq';
+    const sourceType: SourceType = 'pg';
     
     expect(viewType).toBe('grid');
     expect(columnType).toBe('SingleLineText');
     expect(comparisonOp).toBe('eq');
+    expect(sourceType).toBe('pg');
   });
 
   it('should allow using client configuration types', () => {

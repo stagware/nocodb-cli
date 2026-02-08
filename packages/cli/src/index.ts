@@ -29,6 +29,7 @@ import { registerMeCommand } from "./commands/me.js";
 import { registerHooksCommands } from "./commands/hooks.js";
 import { registerTokensCommands } from "./commands/tokens.js";
 import { registerUsersCommands } from "./commands/users.js";
+import { registerSourcesCommands } from "./commands/sources.js";
 import { ConfigManager } from "./config/manager.js";
 import { createContainer, type Container } from "./container.js";
 
@@ -174,6 +175,7 @@ function registerCommands(): void {
   registerHooksCommands(program, container);
   registerTokensCommands(program, container);
   registerUsersCommands(program, container);
+  registerSourcesCommands(program, container);
 }
 
 /**

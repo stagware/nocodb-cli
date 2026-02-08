@@ -71,4 +71,18 @@ describe("MetaApi", () => {
     testEndpoint("updateColumn", "PATCH", "/api/v2/meta/columns/c1", () => api.updateColumn("c1", { title: "t" }), { title: "t" });
     testEndpoint("deleteColumn", "DELETE", "/api/v2/meta/columns/c1", () => api.deleteColumn("c1"));
   });
+
+  describe("Sources", () => {
+    testEndpoint("listSources", "GET", "/api/v2/meta/bases/b1/sources", () => api.listSources("b1"));
+    testEndpoint("createSource", "POST", "/api/v2/meta/bases/b1/sources", () => api.createSource("b1", { alias: "s" }), { alias: "s" });
+    testEndpoint("getSource", "GET", "/api/v2/meta/bases/b1/sources/s1", () => api.getSource("b1", "s1"));
+    testEndpoint("updateSource", "PATCH", "/api/v2/meta/bases/b1/sources/s1", () => api.updateSource("b1", "s1", { alias: "u" }), { alias: "u" });
+    testEndpoint("deleteSource", "DELETE", "/api/v2/meta/bases/b1/sources/s1", () => api.deleteSource("b1", "s1"));
+  });
+
+  describe("Tokens (v2 base-scoped)", () => {
+    testEndpoint("listTokens", "GET", "/api/v2/meta/bases/b1/api-tokens", () => api.listTokens("b1"));
+    testEndpoint("createToken", "POST", "/api/v2/meta/bases/b1/api-tokens", () => api.createToken("b1", { description: "t" }), { description: "t" });
+    testEndpoint("deleteToken", "DELETE", "/api/v2/meta/bases/b1/api-tokens/tok1", () => api.deleteToken("b1", "tok1"));
+  });
 });
