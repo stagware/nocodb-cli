@@ -1,19 +1,19 @@
 # NocoDB CLI E2E Report
 
 Base: https://noco.stagware.org (id: p6lg5hpy02yngmk)
-Started: 2026-02-08T21:07:21.499Z
-Finished: 2026-02-08T21:09:09.360Z
+Started: 2026-02-09T01:07:05.669Z
+Finished: 2026-02-09T01:08:57.122Z
 
 ## Summary
 - Columns: 23 passed, 0 failed, 0 skipped
 - Links: 1 passed, 0 failed
-- Features: 23 passed, 1 failed, 0 skipped
+- Features: 30 passed, 1 failed, 0 skipped
 
 ## Tables
-- CliE2E_Primary_2026-02-08T21-07-21-498Z (mbpho1y5q6f6gen)
-- CliE2E_Secondary_2026-02-08T21-07-21-498Z (mkgquof0yjtlogq)
-- CliE2E_Formula_2026-02-08T21-07-21-498Z (me58jwk1g6tqv17)
-- CliE2E_Types_2026-02-08T21-07-21-498Z (movworwyl2jzgs8)
+- CliE2E_Primary_2026-02-09T01-07-05-669Z (mdh9mhejnkvddrg)
+- CliE2E_Secondary_2026-02-09T01-07-05-669Z (mvtft2nl2s9gt9t)
+- CliE2E_Formula_2026-02-09T01-07-05-669Z (mjja3aotukokaka)
+- CliE2E_Types_2026-02-09T01-07-05-669Z (mp2d8ro2ayvhzru)
 
 ## Column Tests
 - PASSED: LinkToSecondary [LinkToAnotherRecord]
@@ -68,3 +68,10 @@ Finished: 2026-02-08T21:09:09.360Z
 - PASSED: sharedViews
 - PASSED: sharedBase
 - PASSED: viewConfig
+- PASSED: filterChildren
+- PASSED: hookFilters
+- PASSED: setPrimary
+- PASSED: duplicateOps
+- PASSED: visibilityRules
+- PASSED: appInfo
+- PASSED: cloudWorkspace

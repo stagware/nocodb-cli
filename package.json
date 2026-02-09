@@ -2,7 +2,7 @@
   "name": "nocodb-cli-monorepo",
   "private": true,
   "version": "0.1.0",
-  "packageManager": "npm@10",
+  "packageManager": "npm@11",
   "workspaces": [
     "packages/sdk",
     "packages/cli"
@@ -15,7 +15,7 @@
     "e2e": "node scripts/e2e-cli.mjs"
   },
   "devDependencies": {
-    "@types/node": "^25.2.1",
+    "@types/node": "^25.2.2",
     "fast-check": "^4.5.3"
   }
 }

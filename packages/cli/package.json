@@ -41,15 +41,15 @@
   },
   "dependencies": {
     "@stagware/nocodb-sdk": "^0.1.0",
-    "ajv": "^8.12.0",
-    "commander": "^12.1.0",
-    "conf": "^12.0.0"
+    "ajv": "^8.17.1",
+    "commander": "^14.0.3",
+    "conf": "^15.1.0"
   },
   "devDependencies": {
     "fast-check": "^4.5.3",
-    "tsup": "^8.0.2",
-    "tsx": "^4.16.2",
-    "typescript": "^5.6.3",
-    "vitest": "^2.1.1"
+    "tsup": "^8.5.1",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
   }
 }
