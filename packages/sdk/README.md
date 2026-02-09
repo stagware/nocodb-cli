@@ -80,7 +80,7 @@ Record and link operations.
 ```typescript
 const data = new DataApi(client);
 
-await data.listRecords(tableId);
+await data.listLinks(tableId, linkFieldId, recordId);
 await data.linkRecords(tableId, linkFieldId, recordId, [{ Id: 100 }]);
 ```
 

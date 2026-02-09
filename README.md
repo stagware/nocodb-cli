@@ -162,7 +162,7 @@ nocodb views update <viewId> --data '{"title":"New View"}'
 nocodb views delete <viewId>
 ```
 
-Supported `--type` values: `grid` (default), `form`, `gallery`, `kanban`, `calendar`.
+Supported `--type` values: `grid` (default), `form`, `gallery`, `kanban`.
 
 ### View Config
 

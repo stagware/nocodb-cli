@@ -8,8 +8,10 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    environment: release
     permissions:
       contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -26,11 +28,7 @@ jobs:
         run: npm run build && npm test
 
       - name: Publish SDK
-        run: cd packages/sdk && npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: cd packages/sdk && npm publish --access public --provenance
 
       - name: Publish CLI
-        run: cd packages/cli && npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: cd packages/cli && npm publish --access public --provenance
