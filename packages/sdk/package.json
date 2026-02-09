@@ -1,6 +1,6 @@
 {
   "name": "@stagware/nocodb-sdk",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "TypeScript SDK for the NocoDB v2 API — typed clients for metadata, data, and admin operations",
   "type": "module",
   "license": "MIT",

@@ -502,11 +502,18 @@ function shouldAutoRun(): boolean {
     return false;
   }
   try {
-    const entryPath = path.resolve(process.argv[1]);
-    const currentPath = path.resolve(fileURLToPath(import.meta.url));
-    return entryPath === currentPath;
+    const entryReal = fs.realpathSync(path.resolve(process.argv[1]));
+    const selfReal = fs.realpathSync(path.resolve(fileURLToPath(import.meta.url)));
+    if (entryReal === selfReal) return true;
+    // When installed via npm, process.argv[1] points to a bin shim (e.g. .cmd
+    // on Windows) rather than the actual JS file. Detect this: if argv[1]
+    // resolved to a real file but is not a JS/TS module, it is a bin wrapper.
+    if (!/\.[cm]?[jt]s$/.test(entryReal)) return true;
+    return false;
   } catch {
-    return true;
+    // realpathSync throws when argv[1] doesn't exist on disk (e.g. tests set
+    // process.argv = ["node", "nocodb", ...]) — do not auto-run in that case.
+    return false;
   }
 }
 
