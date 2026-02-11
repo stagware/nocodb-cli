@@ -1,4 +1,4 @@
-import { NocoClient } from '../index.js';
+import type { NocoClient } from '../index.js';
 import { BaseV3, ViewV3, WorkspaceV3 } from './types.js';
 
 export class MetaApiV3 {
