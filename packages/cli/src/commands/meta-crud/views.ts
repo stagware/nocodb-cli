@@ -16,6 +16,12 @@ import {
   type OutputOptions, type JsonInputOptions,
 } from "../../utils/command-utils.js";
 
+const VALID_VIEW_TYPES = ['grid', 'form', 'gallery', 'kanban', 'calendar'] as const;
+type ValidViewType = typeof VALID_VIEW_TYPES[number];
+
+const VALID_API_VERSIONS = ['v2', 'v3'] as const;
+type ValidApiVersion = typeof VALID_API_VERSIONS[number];
+
 export function registerViewsCommands(program: Command, container: Container): void {
   const viewsCmd = program.command("views").description("Manage views")
     .addHelpText("after", `
@@ -74,7 +80,18 @@ Examples:
         const configManager = container.get<ConfigManager>("configManager");
 
         const body = await parseJsonInput(options.data, options.dataFile);
-        const viewType = (options.type || 'grid') as any;
+
+        // Validate API Version
+        if (!VALID_API_VERSIONS.includes(options.apiVersion as any)) {
+          throw new Error(`Unsupported API version '${options.apiVersion}'. Supported versions: ${VALID_API_VERSIONS.join(', ')}`);
+        }
+
+        // Validate and normalize view type
+        const rawType = options.type || 'grid';
+        if (!VALID_VIEW_TYPES.includes(rawType as any)) {
+          throw new Error(`Unsupported view type '${rawType}'. Supported types: ${VALID_VIEW_TYPES.join(', ')}`);
+        }
+        const viewType = rawType as ValidViewType;
         const isV3 = options.apiVersion === 'v3' || viewType === 'calendar';
 
         let result;
@@ -110,11 +127,8 @@ Examples:
             case 'grid':
               result = await metaService.createGridView(tableId, body as any);
               break;
-            case 'calendar':
-              throw new Error("Calendar views are only supported in v3. Use --api-version v3 or just usage of calendar implies v3 logic?");
-            // Unreachable due to isV3 check, but kept for sanity if logic changes
             default:
-              throw new Error(`Unsupported view type '${viewType}'. Use: grid, form, gallery, kanban, calendar`);
+              throw new Error(`Unsupported view type '${viewType}'. Use: grid, form, gallery, kanban`);
           }
         }
         printResult(result, options);

@@ -80,4 +80,30 @@ describe('Views Command (Hybrid Strategy)', () => {
             expect.objectContaining({ type: 'calendar' })
         );
     });
+
+    it('should log error for invalid view type', async () => {
+        const exitSpy = vi.spyOn(process, 'exit').mockImplementation((() => { }) as any);
+        const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
+
+        await program.parseAsync(['node', 'test', 'views', 'create', 'tbl_1', '--type', 'invalid_type', '-d', '{}']);
+
+        expect(consoleSpy).toHaveBeenCalledWith(expect.stringMatching(/Unsupported view type 'invalid_type'/));
+        expect(exitSpy).toHaveBeenCalledWith(1);
+
+        exitSpy.mockRestore();
+        consoleSpy.mockRestore();
+    });
+
+    it('should log error for invalid api version', async () => {
+        const exitSpy = vi.spyOn(process, 'exit').mockImplementation((() => { }) as any);
+        const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
+
+        await program.parseAsync(['node', 'test', 'views', 'create', 'tbl_1', '--api-version', 'v99', '-d', '{}']);
+
+        expect(consoleSpy).toHaveBeenCalledWith(expect.stringMatching(/Unsupported API version 'v99'/));
+        expect(exitSpy).toHaveBeenCalledWith(1);
+
+        exitSpy.mockRestore();
+        consoleSpy.mockRestore();
+    });
 });

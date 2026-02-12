@@ -1026,7 +1026,7 @@ export class MetaService {
    * @param view - View configuration
    * @returns Created view
    */
-  async createViewV3(baseId: string, tableId: string, view: Partial<v3.ViewV3> & { type: string; title: string }): Promise<v3.ViewV3> {
+  async createViewV3(baseId: string, tableId: string, view: Partial<v3.ViewV3> & { type: v3.ViewTypeV3; title: string }): Promise<v3.ViewV3> {
     const api = new v3.MetaApiV3(this.client);
     return api.createView(baseId, tableId, view);
   }

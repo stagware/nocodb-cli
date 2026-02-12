@@ -1,5 +1,5 @@
 import type { NocoClient } from '../index.js';
-import { BaseV3, ViewV3, WorkspaceV3 } from './types.js';
+import { BaseV3, ViewV3, ViewTypeV3, WorkspaceV3 } from './types.js';
 
 export class MetaApiV3 {
     constructor(private client: NocoClient) { }
@@ -15,7 +15,7 @@ export class MetaApiV3 {
     async createView(
         baseId: string,
         tableId: string,
-        view: Partial<ViewV3> & { type: string; title: string }
+        view: Partial<ViewV3> & { type: ViewTypeV3; title: string }
     ): Promise<ViewV3> {
         return this.client.request('POST', `/api/v3/meta/bases/${baseId}/tables/${tableId}/views`, { body: view });
     }
