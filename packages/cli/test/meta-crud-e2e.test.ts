@@ -90,8 +90,8 @@ function startServer() {
       res.end(JSON.stringify({ list: [{ id: "v1", title: "View1" }], pageInfo: {} }));
       return;
     }
-    // NocoDB uses v1 type-specific endpoints for view creation (plural names)
-    const viewCreateMatch = url.pathname.match(/^\/api\/v1\/db\/meta\/tables\/([^/]+)\/(grids|forms|galleries|kanbans|calendars)$/);
+    // NocoDB uses v2 type-specific endpoints for view creation (plural names)
+    const viewCreateMatch = url.pathname.match(/^\/api\/v2\/meta\/tables\/([^/]+)\/(grids|forms|galleries|kanbans|calendars)$/);
     if (viewCreateMatch && req.method === "POST") {
       res.writeHead(200, { "content-type": "application/json" });
       res.end(JSON.stringify({ id: "v-new", type: viewCreateMatch[2], ...(body as object) }));
