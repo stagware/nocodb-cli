@@ -10,7 +10,7 @@ import type { MetaService } from "../services/meta-service.js";
 import { parseJsonInput } from "../utils/parsing.js";
 import { addOutputOptions, addJsonInputOptions } from "./helpers.js";
 import {
-  printResult, handleError, resolveServices,
+  printResult, handleError, resolveServices, resolveBaseId,
   type OutputOptions, type JsonInputOptions,
 } from "../utils/command-utils.js";
 
@@ -31,10 +31,11 @@ Examples:
   addOutputOptions(
     visCmd
       .command("get")
-      .argument("baseId", "Base id or alias")
-  ).action(async (baseId: string, options: OutputOptions) => {
+      .argument("[baseId]", "Base id or alias")
+  ).action(async (baseId: string | undefined, options: OutputOptions) => {
     try {
-      const { client, resolvedId } = resolveServices(container, baseId);
+      const effectiveBaseId = resolveBaseId(container, baseId);
+      const { client, resolvedId } = resolveServices(container, effectiveBaseId);
       const metaService = container.get<Function>("metaService")(client) as MetaService;
 
       const result = await metaService.getVisibilityRules(resolvedId!);
@@ -49,12 +50,13 @@ Examples:
     addJsonInputOptions(
       visCmd
         .command("set")
-        .argument("baseId", "Base id or alias"),
+        .argument("[baseId]", "Base id or alias"),
       "Visibility rules JSON array"
     )
-  ).action(async (baseId: string, options: JsonInputOptions & OutputOptions) => {
+  ).action(async (baseId: string | undefined, options: JsonInputOptions & OutputOptions) => {
     try {
-      const { client, resolvedId } = resolveServices(container, baseId);
+      const effectiveBaseId = resolveBaseId(container, baseId);
+      const { client, resolvedId } = resolveServices(container, effectiveBaseId);
       const metaService = container.get<Function>("metaService")(client) as MetaService;
 
       const body = await parseJsonInput(options.data, options.dataFile);

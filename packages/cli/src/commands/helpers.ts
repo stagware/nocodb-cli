@@ -7,6 +7,11 @@ export function addOutputOptions<T extends Command>(cmd: T): T {
     .option("--select <fields>", "Comma-separated list of fields to include in output") as T;
 }
 
+export function addBaseIdOption<T extends Command>(cmd: T): T {
+  return cmd
+    .option("--base-id <baseId>", "Base id or alias (uses workspace default if omitted)") as T;
+}
+
 export function addJsonInputOptions<T extends Command>(cmd: T, bodyDescription = "Request JSON body"): T {
   return cmd
     .option("-d, --data <json>", bodyDescription)

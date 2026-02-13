@@ -175,6 +175,29 @@ export class SwaggerService {
   }
 
   /**
+   * Invalidates all cached swagger documents by removing every swagger-*.json
+   * file from the cache directory.
+   *
+   * @returns Number of cache files deleted
+   */
+  async invalidateAllCache(): Promise<number> {
+    try {
+      if (!fs.existsSync(this.cacheDir)) return 0;
+      const files = await fs.promises.readdir(this.cacheDir);
+      let deleted = 0;
+      for (const file of files) {
+        if (file.startsWith("swagger-") && file.endsWith(".json")) {
+          await fs.promises.unlink(path.join(this.cacheDir, file));
+          deleted++;
+        }
+      }
+      return deleted;
+    } catch {
+      return 0;
+    }
+  }
+
+  /**
    * Gets the cache file path for a base.
    * 
    * @param baseId - The base ID

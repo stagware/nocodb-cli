@@ -6,7 +6,9 @@ import { listEndpoints } from "../lib.js";
 import { addOutputOptions } from "./helpers.js";
 import { formatError, getExitCode } from "../utils/error-handling.js";
 import type { Container } from "../container.js";
+import type { ConfigManager } from "../config/manager.js";
 import type { SwaggerService } from "../services/swagger-service.js";
+import { resolveBaseId } from "../utils/command-utils.js";
 
 /**
  * Registers meta utility commands with the CLI program
@@ -28,12 +30,13 @@ Examples:
   addOutputOptions(
     metaCmd
       .command("swagger")
-      .argument("baseId", "Base id")
+      .argument("[baseId]", "Base id")
       .option("--out <path>", "Write swagger JSON to a file")
       .option("--no-cache", "Do not use cached swagger"),
-  ).action(async (baseId: string, options: { pretty?: boolean; format?: string; out?: string; cache?: boolean }) => {
+  ).action(async (baseId: string | undefined, options: { pretty?: boolean; format?: string; out?: string; cache?: boolean }) => {
     try {
-      const doc = await swaggerService.getSwagger(baseId, options.cache !== false);
+      const effectiveBaseId = resolveBaseId(container, baseId);
+      const doc = await swaggerService.getSwagger(effectiveBaseId, options.cache !== false);
 
       if (options.out) {
         await fs.promises.mkdir(path.dirname(options.out), { recursive: true });
@@ -55,14 +58,15 @@ Examples:
   addOutputOptions(
     metaCmd
       .command("endpoints")
-      .argument("baseId", "Base id")
+      .argument("[baseId]", "Base id")
       .option("--tag <name>", "Filter by tag")
       .option("--no-cache", "Do not use cached swagger"),
-  ).action(async (baseId: string, options: { tag?: string; pretty?: boolean; format?: string; cache?: boolean }) => {
+  ).action(async (baseId: string | undefined, options: { tag?: string; pretty?: boolean; format?: string; cache?: boolean }) => {
     try {
-      const doc = await swaggerService.getSwagger(baseId, options.cache !== false);
+      const effectiveBaseId = resolveBaseId(container, baseId);
+      const doc = await swaggerService.getSwagger(effectiveBaseId, options.cache !== false);
       const endpoints = listEndpoints(doc, options.tag);
-      
+
       if (options.format === "csv" || options.format === "table") {
         const formatted = endpoints.map((e) => ({ endpoint: e }));
         if (process.env.NOCO_QUIET !== "1") {
@@ -90,16 +94,18 @@ Examples:
     .action(async (baseId: string | undefined, options: { all?: boolean }) => {
       try {
         if (options.all || !baseId) {
-          swaggerService.invalidateCache();
+          await swaggerService.invalidateAllCache();
           if (process.env.NOCO_QUIET !== "1") {
             console.log("swagger cache cleared");
           }
           return;
         }
-        
-        swaggerService.invalidateCache(baseId);
+
+        const configManager = container.get<ConfigManager>("configManager");
+        const { id: resolvedBaseId } = configManager.resolveAlias(baseId);
+        swaggerService.invalidateCache(resolvedBaseId);
         if (process.env.NOCO_QUIET !== "1") {
-          console.log(`swagger cache cleared for ${baseId}`);
+          console.log(`swagger cache cleared for ${resolvedBaseId}`);
         }
       } catch (err) {
         console.error(formatError(err, false));

@@ -8,9 +8,9 @@ import { Command } from "commander";
 import type { Container } from "../container.js";
 import type { MetaService } from "../services/meta-service.js";
 import { parseJsonInput } from "../utils/parsing.js";
-import { addOutputOptions, addJsonInputOptions } from "./helpers.js";
+import { addOutputOptions, addJsonInputOptions, addBaseIdOption } from "./helpers.js";
 import {
-  printResult, handleError, resolveServices,
+  printResult, handleError, resolveServices, resolveBaseId,
   type OutputOptions, type JsonInputOptions,
 } from "../utils/command-utils.js";
 
@@ -25,18 +25,20 @@ export function registerUsersCommands(program: Command, container: Container): v
 Examples:
   $ nocodb users list p_abc123
   $ nocodb users invite p_abc123 -d '{"email":"user@example.com","roles":"editor"}'
-  $ nocodb users update p_abc123 usr_xyz -d '{"roles":"viewer"}'
-  $ nocodb users remove p_abc123 usr_xyz
+  $ nocodb users update usr_xyz --base-id p_abc123 -d '{"roles":"viewer"}'
+  $ nocodb users remove usr_xyz --base-id p_abc123
+  $ nocodb users remove usr_xyz                    # uses workspace default base
 `);
 
   // List users command
   addOutputOptions(
     usersCmd
       .command("list")
-      .argument("baseId", "Base id or alias")
-  ).action(async (baseId: string, options: OutputOptions) => {
+      .argument("[baseId]", "Base id or alias")
+  ).action(async (baseId: string | undefined, options: OutputOptions) => {
     try {
-      const { client, resolvedId } = resolveServices(container, baseId);
+      const effectiveBaseId = resolveBaseId(container, baseId);
+      const { client, resolvedId } = resolveServices(container, effectiveBaseId);
       const metaService = container.get<Function>("metaService")(client) as MetaService;
 
       const result = await metaService.listBaseUsers(resolvedId!);
@@ -51,12 +53,13 @@ Examples:
     addJsonInputOptions(
       usersCmd
         .command("invite")
-        .argument("baseId", "Base id or alias"),
+        .argument("[baseId]", "Base id or alias"),
       "User JSON body (e.g. {\"email\":\"user@example.com\",\"roles\":\"editor\"})"
     )
-  ).action(async (baseId: string, options: JsonInputOptions & OutputOptions) => {
+  ).action(async (baseId: string | undefined, options: JsonInputOptions & OutputOptions) => {
     try {
-      const { client, resolvedId } = resolveServices(container, baseId);
+      const effectiveBaseId = resolveBaseId(container, baseId);
+      const { client, resolvedId } = resolveServices(container, effectiveBaseId);
       const metaService = container.get<Function>("metaService")(client) as MetaService;
 
       const body = await parseJsonInput(options.data, options.dataFile);
@@ -70,15 +73,17 @@ Examples:
   // Update user command
   addOutputOptions(
     addJsonInputOptions(
-      usersCmd
-        .command("update")
-        .argument("baseId", "Base id or alias")
-        .argument("userId", "User id"),
+      addBaseIdOption(
+        usersCmd
+          .command("update")
+          .argument("userId", "User id")
+      ),
       "User JSON body (e.g. {\"roles\":\"viewer\"})"
     )
-  ).action(async (baseId: string, userId: string, options: JsonInputOptions & OutputOptions) => {
+  ).action(async (userId: string, options: JsonInputOptions & OutputOptions & { baseId?: string }) => {
     try {
-      const { client, resolvedId } = resolveServices(container, baseId);
+      const effectiveBaseId = resolveBaseId(container, options.baseId);
+      const { client, resolvedId } = resolveServices(container, effectiveBaseId);
       const metaService = container.get<Function>("metaService")(client) as MetaService;
 
       const body = await parseJsonInput(options.data, options.dataFile);
@@ -91,13 +96,15 @@ Examples:
 
   // Remove user command
   addOutputOptions(
-    usersCmd
-      .command("remove")
-      .argument("baseId", "Base id or alias")
-      .argument("userId", "User id")
-  ).action(async (baseId: string, userId: string, options: OutputOptions) => {
+    addBaseIdOption(
+      usersCmd
+        .command("remove")
+        .argument("userId", "User id")
+    )
+  ).action(async (userId: string, options: OutputOptions & { baseId?: string }) => {
     try {
-      const { client, resolvedId } = resolveServices(container, baseId);
+      const effectiveBaseId = resolveBaseId(container, options.baseId);
+      const { client, resolvedId } = resolveServices(container, effectiveBaseId);
       const metaService = container.get<Function>("metaService")(client) as MetaService;
 
       const result = await metaService.removeBaseUser(resolvedId!, userId);

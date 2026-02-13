@@ -20,7 +20,7 @@ import type { NocoClient } from "@stagware/nocodb-sdk";
 import { parseJsonInput } from "../../utils/parsing.js";
 import { addOutputOptions, addJsonInputOptions } from "../helpers.js";
 import {
-  printResult, handleError,
+  printResult, handleError, resolveBaseId,
   type OutputOptions, type JsonInputOptions,
 } from "../../utils/command-utils.js";
 
@@ -60,14 +60,15 @@ Examples:
   });
 
   // Get base command
-  addOutputOptions(basesCmd.command("get").argument("baseId", "Base id or alias")).action(
-    async (baseId: string, options: OutputOptions) => {
+  addOutputOptions(basesCmd.command("get").argument("[baseId]", "Base id or alias")).action(
+    async (baseId: string | undefined, options: OutputOptions) => {
       try {
         const configManager = container.get<ConfigManager>("configManager");
         const createClient = container.get<Function>("createClient");
         const metaServiceFactory = container.get<Function>("metaService");
 
-        const { id: resolvedBaseId, workspace } = configManager.resolveAlias(baseId);
+        const effectiveBaseId = resolveBaseId(container, baseId);
+        const { id: resolvedBaseId, workspace } = configManager.resolveAlias(effectiveBaseId);
         const { workspace: effectiveWorkspace, settings } = configManager.getEffectiveConfig({});
         const ws = workspace || effectiveWorkspace;
 
@@ -83,14 +84,15 @@ Examples:
   );
 
   // Get base info command
-  addOutputOptions(basesCmd.command("info").argument("baseId", "Base id or alias")).action(
-    async (baseId: string, options: OutputOptions) => {
+  addOutputOptions(basesCmd.command("info").argument("[baseId]", "Base id or alias")).action(
+    async (baseId: string | undefined, options: OutputOptions) => {
       try {
         const configManager = container.get<ConfigManager>("configManager");
         const createClient = container.get<Function>("createClient");
         const metaServiceFactory = container.get<Function>("metaService");
 
-        const { id: resolvedBaseId, workspace } = configManager.resolveAlias(baseId);
+        const effectiveBaseId = resolveBaseId(container, baseId);
+        const { id: resolvedBaseId, workspace } = configManager.resolveAlias(effectiveBaseId);
         const { workspace: effectiveWorkspace, settings } = configManager.getEffectiveConfig({});
         const ws = workspace || effectiveWorkspace;
 
@@ -127,14 +129,15 @@ Examples:
   );
 
   // Update base command
-  addOutputOptions(addJsonInputOptions(basesCmd.command("update").argument("baseId", "Base id or alias"))).action(
-    async (baseId: string, options: JsonInputOptions & OutputOptions) => {
+  addOutputOptions(addJsonInputOptions(basesCmd.command("update").argument("[baseId]", "Base id or alias"))).action(
+    async (baseId: string | undefined, options: JsonInputOptions & OutputOptions) => {
       try {
         const configManager = container.get<ConfigManager>("configManager");
         const createClient = container.get<Function>("createClient");
         const metaServiceFactory = container.get<Function>("metaService");
 
-        const { id: resolvedBaseId, workspace } = configManager.resolveAlias(baseId);
+        const effectiveBaseId = resolveBaseId(container, baseId);
+        const { id: resolvedBaseId, workspace } = configManager.resolveAlias(effectiveBaseId);
         const { workspace: effectiveWorkspace, settings } = configManager.getEffectiveConfig({});
         const ws = workspace || effectiveWorkspace;
 
@@ -151,14 +154,15 @@ Examples:
   );
 
   // Delete base command
-  addOutputOptions(basesCmd.command("delete").argument("baseId", "Base id or alias")).action(
-    async (baseId: string, options: OutputOptions) => {
+  addOutputOptions(basesCmd.command("delete").argument("[baseId]", "Base id or alias")).action(
+    async (baseId: string | undefined, options: OutputOptions) => {
       try {
         const configManager = container.get<ConfigManager>("configManager");
         const createClient = container.get<Function>("createClient");
         const metaServiceFactory = container.get<Function>("metaService");
 
-        const { id: resolvedBaseId, workspace } = configManager.resolveAlias(baseId);
+        const effectiveBaseId = resolveBaseId(container, baseId);
+        const { id: resolvedBaseId, workspace } = configManager.resolveAlias(effectiveBaseId);
         const { workspace: effectiveWorkspace, settings } = configManager.getEffectiveConfig({});
         const ws = workspace || effectiveWorkspace;
 

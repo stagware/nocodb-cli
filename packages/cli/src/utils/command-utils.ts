@@ -19,6 +19,25 @@ import { formatError, getExitCode } from "./error-handling.js";
 import { parseKeyValue, validateEntityId } from "./parsing.js";
 
 /**
+ * Resolves a baseId from an explicit argument or falls back to the active workspace default.
+ * Exits with code 1 if neither is available.
+ *
+ * @param container - Dependency injection container
+ * @param baseId - Explicit base ID or alias (may be undefined when the CLI argument is optional)
+ * @returns The resolved base ID string (never undefined)
+ */
+export function resolveBaseId(container: Container, baseId: string | undefined): string {
+  if (baseId) return baseId;
+  const configManager = container.get<ConfigManager>("configManager");
+  const activeWs = configManager.getActiveWorkspace();
+  if (!activeWs?.baseId) {
+    console.error("error: missing required argument 'baseId' and no default base configured");
+    process.exit(1);
+  }
+  return activeWs.baseId;
+}
+
+/**
  * Options for output formatting
  */
 export interface OutputOptions {

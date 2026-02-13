@@ -1,6 +1,6 @@
 {
   "name": "@stagware/nocodb-cli",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Command-line interface for NocoDB — manage bases, tables, rows, views, and more from the terminal",
   "type": "module",
   "license": "MIT",

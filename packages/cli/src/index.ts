@@ -141,7 +141,7 @@ const program = new Command();
 program
   .name("nocodb")
   .description("NocoDB CLI (v2)")
-  .version("0.1.0")
+  .version("0.1.3")
   .option("--base <baseId>", "Default base id for dynamic API calls")
   .option("--timeout <ms>", "Request timeout in milliseconds")
   .option("--retries <count>", "Number of retries (0 to disable)")
@@ -163,13 +163,13 @@ function initializeConfig(): void {
 function registerCommands(): void {
   // Config commands
   registerConfigCommands();
-  
+
   // Header commands
   registerHeaderCommands();
-  
+
   // Settings commands
   registerSettingsCommands();
-  
+
   // Domain commands (using container)
   registerWorkspaceAliasCommands(program, container);
   registerMetaCrudCommands(program, container);
@@ -191,7 +191,7 @@ function registerCommands(): void {
   registerDuplicateCommands(program, container);
   registerVisibilityRulesCommands(program, container);
   registerAppInfoCommand(program, container);
-  
+
   // Subcommands that attach to existing command groups (must come after parent registration)
   registerFilterChildrenCommands(program, container);
   registerHookFiltersCommands(program, container);
@@ -220,7 +220,7 @@ Examples:
       // Initialize config and container if not already done
       initializeConfig();
       const configManager = container.get<ConfigManager>("configManager");
-      
+
       if (key === "baseUrl") {
         // Get or create default workspace
         let ws = configManager.getWorkspace("default");
@@ -236,7 +236,7 @@ Examples:
           ws.baseUrl = value;
           configManager.addWorkspace("default", ws);
         }
-        
+
         if (process.env.NOCO_QUIET !== "1") {
           console.log("baseUrl set");
         }
@@ -258,7 +258,7 @@ Examples:
           ws.baseId = value;
           configManager.addWorkspace("default", ws);
         }
-        
+
         if (process.env.NOCO_QUIET !== "1") {
           console.log("baseId set");
         }
@@ -275,7 +275,7 @@ Examples:
       // Initialize config and container if not already done
       initializeConfig();
       const configManager = container.get<ConfigManager>("configManager");
-      
+
       if (key === "baseUrl") {
         const ws = configManager.getWorkspace("default") || configManager.getActiveWorkspace();
         const baseUrl = ws?.baseUrl;
@@ -313,12 +313,12 @@ Examples:
       // Initialize config and container if not already done
       initializeConfig();
       const configManager = container.get<ConfigManager>("configManager");
-      
+
       const ws = configManager.getWorkspace("default") || configManager.getActiveWorkspace();
       const baseUrl = ws?.baseUrl ?? null;
       const baseId = ws?.baseId ?? null;
       const headers = ws?.headers ?? {};
-      
+
       if (process.env.NOCO_QUIET !== "1") {
         console.log(JSON.stringify({ baseUrl, baseId, headers }, null, 2));
       }
@@ -345,7 +345,7 @@ Examples:
       // Initialize config and container if not already done
       initializeConfig();
       const configManager = container.get<ConfigManager>("configManager");
-      
+
       // Get or create default workspace
       let ws = configManager.getWorkspace("default");
       if (!ws) {
@@ -354,10 +354,10 @@ Examples:
         process.exitCode = 1;
         return;
       }
-      
+
       ws.headers[name] = value;
       configManager.addWorkspace("default", ws);
-      
+
       if (process.env.NOCO_QUIET !== "1") {
         console.log(`header '${name}' set`);
       }
@@ -370,13 +370,13 @@ Examples:
       // Initialize config and container if not already done
       initializeConfig();
       const configManager = container.get<ConfigManager>("configManager");
-      
+
       const ws = configManager.getWorkspace("default");
       if (ws && ws.headers[name]) {
         delete ws.headers[name];
         configManager.addWorkspace("default", ws);
       }
-      
+
       if (process.env.NOCO_QUIET !== "1") {
         console.log(`header '${name}' deleted`);
       }
@@ -388,10 +388,10 @@ Examples:
       // Initialize config and container if not already done
       initializeConfig();
       const configManager = container.get<ConfigManager>("configManager");
-      
+
       const ws = configManager.getWorkspace("default") || configManager.getActiveWorkspace();
       const headers = ws?.headers || {};
-      
+
       if (process.env.NOCO_QUIET !== "1") {
         console.log(JSON.stringify(headers, null, 2));
       }
@@ -481,7 +481,7 @@ async function bootstrap(): Promise<void> {
   try {
     // Initialize configuration and container
     initializeConfig();
-    
+
     // Register all commands
     registerCommands();
 
@@ -490,7 +490,7 @@ async function bootstrap(): Promise<void> {
       const baseId = getBaseId(getBaseIdFromArgv());
       await registerDynamicApiCommands(apiCmd, baseId, container);
     }
-    
+
     await program.parseAsync(process.argv);
   } catch (err) {
     handleError(err);

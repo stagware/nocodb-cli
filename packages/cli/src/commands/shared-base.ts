@@ -10,7 +10,7 @@ import type { MetaService } from "../services/meta-service.js";
 import { parseJsonInput } from "../utils/parsing.js";
 import { addOutputOptions, addJsonInputOptions } from "./helpers.js";
 import {
-  printResult, handleError, resolveServices,
+  printResult, handleError, resolveServices, resolveBaseId,
   type OutputOptions, type JsonInputOptions,
 } from "../utils/command-utils.js";
 
@@ -34,10 +34,11 @@ Examples:
   addOutputOptions(
     sharedBaseCmd
       .command("get")
-      .argument("baseId", "Base id or alias")
-  ).action(async (baseId: string, options: OutputOptions) => {
+      .argument("[baseId]", "Base id or alias")
+  ).action(async (baseId: string | undefined, options: OutputOptions) => {
     try {
-      const { client, resolvedId } = resolveServices(container, baseId);
+      const effectiveBaseId = resolveBaseId(container, baseId);
+      const { client, resolvedId } = resolveServices(container, effectiveBaseId);
       const metaService = container.get<Function>("metaService")(client) as MetaService;
 
       const result = await metaService.getSharedBase(resolvedId!);
@@ -52,12 +53,13 @@ Examples:
     addJsonInputOptions(
       sharedBaseCmd
         .command("create")
-        .argument("baseId", "Base id or alias"),
+        .argument("[baseId]", "Base id or alias"),
       "Optional shared base JSON body (e.g. {\"roles\":\"viewer\",\"password\":\"secret\"})"
     )
-  ).action(async (baseId: string, options: JsonInputOptions & OutputOptions) => {
+  ).action(async (baseId: string | undefined, options: JsonInputOptions & OutputOptions) => {
     try {
-      const { client, resolvedId } = resolveServices(container, baseId);
+      const effectiveBaseId = resolveBaseId(container, baseId);
+      const { client, resolvedId } = resolveServices(container, effectiveBaseId);
       const metaService = container.get<Function>("metaService")(client) as MetaService;
 
       let body: any;
@@ -76,12 +78,13 @@ Examples:
     addJsonInputOptions(
       sharedBaseCmd
         .command("update")
-        .argument("baseId", "Base id or alias"),
+        .argument("[baseId]", "Base id or alias"),
       "Shared base JSON body (e.g. {\"roles\":\"editor\"})"
     )
-  ).action(async (baseId: string, options: JsonInputOptions & OutputOptions) => {
+  ).action(async (baseId: string | undefined, options: JsonInputOptions & OutputOptions) => {
     try {
-      const { client, resolvedId } = resolveServices(container, baseId);
+      const effectiveBaseId = resolveBaseId(container, baseId);
+      const { client, resolvedId } = resolveServices(container, effectiveBaseId);
       const metaService = container.get<Function>("metaService")(client) as MetaService;
 
       const body = await parseJsonInput(options.data, options.dataFile);
@@ -96,10 +99,11 @@ Examples:
   addOutputOptions(
     sharedBaseCmd
       .command("delete")
-      .argument("baseId", "Base id or alias")
-  ).action(async (baseId: string, options: OutputOptions) => {
+      .argument("[baseId]", "Base id or alias")
+  ).action(async (baseId: string | undefined, options: OutputOptions) => {
     try {
-      const { client, resolvedId } = resolveServices(container, baseId);
+      const effectiveBaseId = resolveBaseId(container, baseId);
+      const { client, resolvedId } = resolveServices(container, effectiveBaseId);
       const metaService = container.get<Function>("metaService")(client) as MetaService;
 
       const result = await metaService.deleteSharedBase(resolvedId!);

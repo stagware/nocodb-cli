@@ -25,7 +25,7 @@ export function registerWorkspaceAliasCommands(program: Command, container: Cont
   const workspaceCmd = program.command("workspace").description("Manage NocoDB workspaces (URL, Token, BaseID)")
     .addHelpText("after", `
 Examples:
-  $ nocodb workspace add prod https://noco.example.com xc-token-abc --base p_123
+  $ nocodb workspace add prod https://noco.example.com xc-token-abc --default-base p_123
   $ nocodb workspace use prod
   $ nocodb workspace list
   $ nocodb workspace show
@@ -38,13 +38,13 @@ Examples:
     .argument("name", "Workspace name (alias)")
     .argument("url", "Base URL")
     .argument("token", "API Token (xc-token)")
-    .option("--base <id>", "Default Base ID for this workspace")
-    .action((name: string, url: string, token: string, options: { base?: string }) => {
+    .option("--default-base <id>", "Default Base ID for this workspace")
+    .action((name: string, url: string, token: string, options: { defaultBase?: string }) => {
       try {
         configManager.addWorkspace(name, {
           baseUrl: url,
           headers: { "xc-token": token },
-          baseId: options.base,
+          baseId: options.defaultBase,
           aliases: {},
         });
         console.log(`Workspace '${name}' added.`);

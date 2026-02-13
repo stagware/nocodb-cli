@@ -6,11 +6,12 @@
 
 import { Command } from "commander";
 import type { Container } from "../container.js";
+import type { ConfigManager } from "../config/manager.js";
 import type { MetaService } from "../services/meta-service.js";
-import { addOutputOptions } from "./helpers.js";
+import { addOutputOptions, addBaseIdOption } from "./helpers.js";
 import { validateEntityId } from "../utils/parsing.js";
 import {
-  printResult, handleError, resolveServices,
+  printResult, handleError, resolveServices, resolveBaseId,
   type OutputOptions,
 } from "../utils/command-utils.js";
 
@@ -46,8 +47,10 @@ export function registerDuplicateCommands(program: Command, container: Container
 Examples:
   $ nocodb duplicate base p_abc123
   $ nocodb duplicate base p_abc123 --exclude-data
-  $ nocodb duplicate source p_abc123 ds_xyz789
-  $ nocodb duplicate table p_abc123 tbl_xyz --exclude-views --exclude-hooks
+  $ nocodb duplicate source ds_xyz789 --base-id p_abc123
+  $ nocodb duplicate source ds_xyz789              # uses workspace default base
+  $ nocodb duplicate table tbl_xyz --base-id p_abc123 --exclude-views --exclude-hooks
+  $ nocodb duplicate table tbl_xyz                 # uses workspace default base
 `);
 
   // Duplicate base
@@ -55,11 +58,12 @@ Examples:
     addDuplicateOptions(
       dupCmd
         .command("base")
-        .argument("baseId", "Base id or alias")
+        .argument("[baseId]", "Base id or alias")
     )
-  ).action(async (baseId: string, options: DuplicateOutputOptions) => {
+  ).action(async (baseId: string | undefined, options: DuplicateOutputOptions) => {
     try {
-      const { client, resolvedId } = resolveServices(container, baseId);
+      const effectiveBaseId = resolveBaseId(container, baseId);
+      const { client, resolvedId } = resolveServices(container, effectiveBaseId);
       const metaService = container.get<Function>("metaService")(client) as MetaService;
 
       const result = await metaService.duplicateBase(resolvedId!, buildOptions(options));
@@ -72,14 +76,16 @@ Examples:
   // Duplicate source
   addOutputOptions(
     addDuplicateOptions(
-      dupCmd
-        .command("source")
-        .argument("baseId", "Base id or alias")
-        .argument("sourceId", "Source id")
+      addBaseIdOption(
+        dupCmd
+          .command("source")
+          .argument("sourceId", "Source id")
+      )
     )
-  ).action(async (baseId: string, sourceId: string, options: DuplicateOutputOptions) => {
+  ).action(async (sourceId: string, options: DuplicateOutputOptions & { baseId?: string }) => {
     try {
-      const { client, resolvedId } = resolveServices(container, baseId);
+      const effectiveBaseId = resolveBaseId(container, options.baseId);
+      const { client, resolvedId } = resolveServices(container, effectiveBaseId);
       const metaService = container.get<Function>("metaService")(client) as MetaService;
 
       const result = await metaService.duplicateSource(resolvedId!, sourceId, buildOptions(options));
@@ -92,18 +98,20 @@ Examples:
   // Duplicate table
   addOutputOptions(
     addDuplicateOptions(
-      dupCmd
-        .command("table")
-        .argument("baseId", "Base id or alias")
-        .argument("tableId", "Table id or alias")
+      addBaseIdOption(
+        dupCmd
+          .command("table")
+          .argument("tableId", "Table id or alias")
+      )
     )
-  ).action(async (baseId: string, tableId: string, options: DuplicateOutputOptions) => {
+  ).action(async (tableId: string, options: DuplicateOutputOptions & { baseId?: string }) => {
     try {
-      const { client, resolvedId } = resolveServices(container, baseId);
+      const effectiveBaseId = resolveBaseId(container, options.baseId);
+      const { client, resolvedId } = resolveServices(container, effectiveBaseId);
       const metaService = container.get<Function>("metaService")(client) as MetaService;
 
       // Resolve tableId alias too (validate first, consistent with resolveServices)
-      const configManager = container.get<any>("configManager");
+      const configManager = container.get<ConfigManager>("configManager");
       const validatedTableId = validateEntityId(tableId, "table");
       const resolvedTableId = configManager.resolveAlias(validatedTableId).id;
 

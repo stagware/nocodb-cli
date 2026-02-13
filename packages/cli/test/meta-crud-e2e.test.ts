@@ -1059,7 +1059,7 @@ describe("duplicate e2e", () => {
       await runCli(["config", "set", "baseUrl", baseUrl], configDir);
       process.env.NOCO_QUIET = "0";
 
-      await runCli(["duplicate", "table", "b1", "t1"], configDir);
+      await runCli(["duplicate", "table", "t1", "--base-id", "b1"], configDir);
 
       expect(calls.some((c) => c.method === "POST" && c.path === "/api/v2/meta/duplicate/b1/table/t1")).toBe(true);
       expect(logs.join("\n")).toContain("job_dup_tbl");
@@ -1075,7 +1075,7 @@ describe("duplicate e2e", () => {
       await runCli(["config", "set", "baseUrl", baseUrl], configDir);
       process.env.NOCO_QUIET = "0";
 
-      await runCli(["duplicate", "source", "b1", "src1"], configDir);
+      await runCli(["duplicate", "source", "src1", "--base-id", "b1"], configDir);
 
       expect(calls.some((c) => c.method === "POST" && c.path === "/api/v2/meta/duplicate/b1/src1")).toBe(true);
       expect(logs.join("\n")).toContain("job_dup_src");
