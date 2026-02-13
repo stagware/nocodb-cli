@@ -28,7 +28,7 @@ import {
 export function formatError(error: unknown, verbose?: boolean): string {
   // Check for --verbose flag in process.argv if not explicitly provided
   const isVerbose = verbose ?? process.argv.includes('--verbose');
-  
+
   const lines: string[] = [];
 
   if (error instanceof ValidationError) {

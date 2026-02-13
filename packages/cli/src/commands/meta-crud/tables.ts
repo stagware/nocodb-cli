@@ -75,7 +75,10 @@ Examples:
   );
 
   // Create table command
-  addOutputOptions(addJsonInputOptions(tablesCmd.command("create").argument("[baseId]", "Base id or alias"))).action(
+  const createCmd = tablesCmd.command("create").argument("[baseId]", "Base id or alias");
+  addJsonInputOptions(createCmd);
+  addOutputOptions(createCmd);
+  createCmd.action(
     async (baseId: string | undefined, options: JsonInputOptions & OutputOptions) => {
       try {
         const configManager = container.get<ConfigManager>("configManager");
@@ -100,7 +103,10 @@ Examples:
   );
 
   // Update table command
-  addOutputOptions(addJsonInputOptions(tablesCmd.command("update").argument("tableId", "Table id or alias"))).action(
+  const updateCmd = tablesCmd.command("update").argument("tableId", "Table id or alias");
+  addJsonInputOptions(updateCmd);
+  addOutputOptions(updateCmd);
+  updateCmd.action(
     async (tableId: string, options: JsonInputOptions & OutputOptions) => {
       try {
         const configManager = container.get<ConfigManager>("configManager");

@@ -217,50 +217,48 @@ Examples:
     .argument("key", "Configuration key")
     .argument("value", "Configuration value")
     .action((key: string, value: string) => {
-      // Initialize config and container if not already done
       initializeConfig();
       const configManager = container.get<ConfigManager>("configManager");
 
+      const activeWorkspaceName = configManager.getActiveWorkspaceName() || "default";
+
       if (key === "baseUrl") {
-        // Get or create default workspace
-        let ws = configManager.getWorkspace("default");
+        // Get or create workspace
+        let ws = configManager.getWorkspace(activeWorkspaceName);
         if (!ws) {
           ws = {
             baseUrl: value,
             headers: {},
             aliases: {},
           };
-          configManager.addWorkspace("default", ws);
-          configManager.setActiveWorkspace("default");
+          configManager.addWorkspace(activeWorkspaceName, ws);
+          if (activeWorkspaceName === "default") {
+            configManager.setActiveWorkspace("default");
+          }
         } else {
           ws.baseUrl = value;
-          configManager.addWorkspace("default", ws);
+          configManager.addWorkspace(activeWorkspaceName, ws);
         }
 
         if (process.env.NOCO_QUIET !== "1") {
-          console.log("baseUrl set");
+          console.log(`baseUrl set for workspace '${activeWorkspaceName}'`);
         }
         return;
       }
       if (key === "baseId") {
-        // Get or create default workspace
-        let ws = configManager.getWorkspace("default");
+        // Get or create workspace
+        let ws = configManager.getWorkspace(activeWorkspaceName);
         if (!ws) {
-          ws = {
-            baseUrl: "",
-            headers: {},
-            baseId: value,
-            aliases: {},
-          };
-          configManager.addWorkspace("default", ws);
-          configManager.setActiveWorkspace("default");
+          console.error(`No workspace '${activeWorkspaceName}' configured. Set baseUrl first: nocodb config set baseUrl <url>`);
+          process.exitCode = 1;
+          return;
         } else {
           ws.baseId = value;
-          configManager.addWorkspace("default", ws);
+          configManager.addWorkspace(activeWorkspaceName, ws);
         }
 
         if (process.env.NOCO_QUIET !== "1") {
-          console.log("baseId set");
+          console.log(`baseId set for workspace '${activeWorkspaceName}'`);
         }
         return;
       }
@@ -277,7 +275,7 @@ Examples:
       const configManager = container.get<ConfigManager>("configManager");
 
       if (key === "baseUrl") {
-        const ws = configManager.getWorkspace("default") || configManager.getActiveWorkspace();
+        const ws = configManager.getActiveWorkspace();
         const baseUrl = ws?.baseUrl;
         if (!baseUrl) {
           console.error("baseUrl is not set");
@@ -290,7 +288,7 @@ Examples:
         return;
       }
       if (key === "baseId") {
-        const ws = configManager.getWorkspace("default") || configManager.getActiveWorkspace();
+        const ws = configManager.getActiveWorkspace();
         const baseId = ws?.baseId;
         if (!baseId) {
           console.error("baseId is not set");
@@ -314,7 +312,7 @@ Examples:
       initializeConfig();
       const configManager = container.get<ConfigManager>("configManager");
 
-      const ws = configManager.getWorkspace("default") || configManager.getActiveWorkspace();
+      const ws = configManager.getActiveWorkspace();
       const baseUrl = ws?.baseUrl ?? null;
       const baseId = ws?.baseId ?? null;
       const headers = ws?.headers ?? {};
@@ -346,20 +344,19 @@ Examples:
       initializeConfig();
       const configManager = container.get<ConfigManager>("configManager");
 
-      // Get or create default workspace
-      let ws = configManager.getWorkspace("default");
+      const activeWorkspaceName = configManager.getActiveWorkspaceName() || "default";
+      let ws = configManager.getWorkspace(activeWorkspaceName);
       if (!ws) {
-        // If no workspace exists, user needs to set baseUrl first
-        console.error("No workspace configured. Set baseUrl first: nocodb config set baseUrl <url>");
+        console.error(`No workspace '${activeWorkspaceName}' configured. Set baseUrl first: nocodb config set baseUrl <url>`);
         process.exitCode = 1;
         return;
       }
 
       ws.headers[name] = value;
-      configManager.addWorkspace("default", ws);
+      configManager.addWorkspace(activeWorkspaceName, ws);
 
       if (process.env.NOCO_QUIET !== "1") {
-        console.log(`header '${name}' set`);
+        console.log(`header '${name}' set for workspace '${activeWorkspaceName}'`);
       }
     });
 
@@ -371,10 +368,11 @@ Examples:
       initializeConfig();
       const configManager = container.get<ConfigManager>("configManager");
 
-      const ws = configManager.getWorkspace("default");
+      const activeWorkspaceName = configManager.getActiveWorkspaceName() || "default";
+      const ws = configManager.getWorkspace(activeWorkspaceName);
       if (ws && ws.headers[name]) {
         delete ws.headers[name];
-        configManager.addWorkspace("default", ws);
+        configManager.addWorkspace(activeWorkspaceName, ws);
       }
 
       if (process.env.NOCO_QUIET !== "1") {
@@ -389,7 +387,7 @@ Examples:
       initializeConfig();
       const configManager = container.get<ConfigManager>("configManager");
 
-      const ws = configManager.getWorkspace("default") || configManager.getActiveWorkspace();
+      const ws = configManager.getActiveWorkspace();
       const headers = ws?.headers || {};
 
       if (process.env.NOCO_QUIET !== "1") {

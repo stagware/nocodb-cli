@@ -322,6 +322,13 @@ export class ConfigManager {
   }
 
   /**
+   * Gets the name of the active workspace.
+   */
+  getActiveWorkspaceName(): string | undefined {
+    return this.config.activeWorkspace;
+  }
+
+  /**
    * Adds or updates a workspace configuration.
    * 
    * This method validates the workspace configuration before saving.
