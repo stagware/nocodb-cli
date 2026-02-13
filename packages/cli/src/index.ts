@@ -141,7 +141,7 @@ const program = new Command();
 program
   .name("nocodb")
   .description("NocoDB CLI (v2)")
-  .version("0.1.3")
+  .version("0.1.4")
   .option("--base <baseId>", "Default base id for dynamic API calls")
   .option("--timeout <ms>", "Request timeout in milliseconds")
   .option("--retries <count>", "Number of retries (0 to disable)")
