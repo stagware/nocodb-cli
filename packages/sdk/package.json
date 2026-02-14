@@ -7,7 +7,7 @@
   "author": "Jason Henriksen",
   "repository": {
     "type": "git",
-    "url": "https://github.com/stagware/nocodb-cli.git",
+    "url": "git+https://github.com/stagware/nocodb-cli.git",
     "directory": "packages/sdk"
   },
   "homepage": "https://github.com/stagware/nocodb-cli/tree/main/packages/sdk#readme",
