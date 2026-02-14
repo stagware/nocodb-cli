@@ -1,7 +1,7 @@
 {
   "name": "nocodb-cli-monorepo",
   "private": true,
-  "version": "0.1.4",
+  "version": "0.1.5",
   "packageManager": "npm@11",
   "workspaces": [
     "packages/sdk",
@@ -12,7 +12,8 @@
     "dev": "npm --prefix packages/cli run dev --",
     "lint": "npm --prefix packages/sdk run lint && npm --prefix packages/cli run lint",
     "test": "npm --prefix packages/sdk run test && npm --prefix packages/cli run test",
-    "e2e": "node scripts/e2e-cli.mjs"
+    "e2e": "node scripts/e2e-cli.mjs",
+    "bump": "node scripts/bump-version.mjs"
   },
   "devDependencies": {
     "@types/node": "^25.2.2",

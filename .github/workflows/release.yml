@@ -1,0 +1,70 @@
+name: release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: release
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test
+
+      - name: Publish SDK
+        run: npm publish --access public
+        working-directory: packages/sdk
+
+      - name: Publish CLI
+        run: npm publish --access public
+        working-directory: packages/cli
+
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Compile binaries
+        working-directory: packages/cli
+        run: |
+          npm run compile:win
+          npm run compile:linux
+          npm run compile:mac
+
+      # --- Pack tarballs ---
+      - name: Pack SDK tarball
+        run: npm pack
+        working-directory: packages/sdk
+
+      - name: Pack CLI tarball
+        run: npm pack
+        working-directory: packages/cli
+
+      # --- Upload tarballs to GitHub Release ---
+      - name: Upload release artifacts
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            packages/sdk/*.tgz
+            packages/cli/*.tgz
+            packages/cli/dist/nocodb-win-x64.exe
+            packages/cli/dist/nocodb-linux-x64
+            packages/cli/dist/nocodb-darwin-x64

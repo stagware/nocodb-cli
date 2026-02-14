@@ -1,6 +1,6 @@
 {
   "name": "@stagware/nocodb-cli",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Command-line interface for NocoDB — manage bases, tables, rows, views, and more from the terminal",
   "type": "module",
   "license": "MIT",
@@ -38,11 +38,13 @@
     "lint": "echo 'no lint yet'",
     "test": "vitest run",
     "compile": "bun build --compile --minify --sourcemap ./src/index.ts --outfile dist/nocodb",
+    "compile:win": "bun build --compile --minify --sourcemap ./src/index.ts --outfile dist/nocodb-win-x64.exe --target bun-windows-x64",
+    "compile:linux": "bun build --compile --minify --sourcemap ./src/index.ts --outfile dist/nocodb-linux-x64 --target bun-linux-x64",
+    "compile:mac": "bun build --compile --minify --sourcemap ./src/index.ts --outfile dist/nocodb-darwin-x64 --target bun-darwin-x64",
     "prepublishOnly": "npm run build && npm test"
   },
   "dependencies": {
-    "@stagware/nocodb-cli": "^0.1.3",
-    "@stagware/nocodb-sdk": "^0.1.3",
+    "@stagware/nocodb-sdk": "^0.1.5",
     "ajv": "^8.17.1",
     "commander": "^14.0.3",
     "conf": "^15.1.0"
