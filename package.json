@@ -16,7 +16,10 @@
     "bump": "node scripts/bump-version.mjs"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/node": "^25.2.2",
-    "fast-check": "^4.5.3"
+    "eslint": "^10.0.0",
+    "fast-check": "^4.5.3",
+    "typescript-eslint": "^8.55.0"
   }
 }

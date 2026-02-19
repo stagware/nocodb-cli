@@ -72,14 +72,11 @@ Examples:
     .action(() => {
       try {
         const workspaces = configManager.listWorkspaces();
-        const activeWorkspace = configManager.getActiveWorkspace();
-        const activeWorkspaceName = workspaces.find(
-          (name) => configManager.getWorkspace(name) === activeWorkspace
-        );
+        const activeWsName = configManager.getActiveWorkspaceName();
 
         for (const name of workspaces) {
           const ws = configManager.getWorkspace(name);
-          const marker = name === activeWorkspaceName ? "* " : "  ";
+          const marker = name === activeWsName ? "* " : "  ";
           console.log(`${marker}${name} (${ws?.baseUrl || ""})`);
         }
       } catch (err) {
@@ -116,12 +113,8 @@ Examples:
         if (name) {
           workspace = configManager.getWorkspace(name);
         } else {
-          workspace = configManager.getActiveWorkspace();
-          // Find the name of the active workspace
-          const workspaces = configManager.listWorkspaces();
-          workspaceName = workspaces.find(
-            (wsName) => configManager.getWorkspace(wsName) === workspace
-          );
+          workspaceName = configManager.getActiveWorkspaceName();
+          workspace = workspaceName ? configManager.getWorkspace(workspaceName) : undefined;
         }
 
         if (!workspace) {
@@ -171,20 +164,9 @@ Examples:
           aliasName = aliasPart;
         } else {
           // Use active workspace
-          const activeWorkspace = configManager.getActiveWorkspace();
-          if (!activeWorkspace) {
-            console.error("No active workspace. Use: nocodb workspace use <name> or specify workspace.alias");
-            process.exit(1);
-          }
-
-          // Find the name of the active workspace
-          const workspaces = configManager.listWorkspaces();
-          targetWs = workspaces.find(
-            (wsName) => configManager.getWorkspace(wsName) === activeWorkspace
-          );
-
+          targetWs = configManager.getActiveWorkspaceName();
           if (!targetWs) {
-            console.error("Active workspace not found.");
+            console.error("No active workspace. Use: nocodb workspace use <name> or specify workspace.alias");
             process.exit(1);
           }
         }
@@ -217,20 +199,19 @@ Examples:
             process.exit(1);
           }
         } else {
-          workspace = configManager.getActiveWorkspace();
-          if (!workspace) {
+          workspaceName = configManager.getActiveWorkspaceName();
+          if (!workspaceName) {
             console.error("No active workspace. Use: nocodb workspace use <name> or specify a workspace name.");
             process.exit(1);
           }
-
-          // Find the name of the active workspace
-          const workspaces = configManager.listWorkspaces();
-          workspaceName = workspaces.find(
-            (name) => configManager.getWorkspace(name) === workspace
-          );
+          workspace = configManager.getWorkspace(workspaceName);
+          if (!workspace) {
+            console.error(`Active workspace '${workspaceName}' not found. It may have been deleted.`);
+            process.exit(1);
+          }
         }
 
-        console.log(JSON.stringify(workspace.aliases, null, 2));
+        console.log(JSON.stringify(workspace!.aliases, null, 2));
       } catch (err) {
         handleError(err);
       }
@@ -260,20 +241,9 @@ Examples:
           aliasName = aliasPart;
         } else {
           // Use active workspace
-          const activeWorkspace = configManager.getActiveWorkspace();
-          if (!activeWorkspace) {
-            console.error("No active workspace. Use: nocodb workspace use <name> or specify workspace.alias");
-            process.exit(1);
-          }
-
-          // Find the name of the active workspace
-          const workspaces = configManager.listWorkspaces();
-          targetWs = workspaces.find(
-            (wsName) => configManager.getWorkspace(wsName) === activeWorkspace
-          );
-
+          targetWs = configManager.getActiveWorkspaceName();
           if (!targetWs) {
-            console.error("Active workspace not found.");
+            console.error("No active workspace. Use: nocodb workspace use <name> or specify workspace.alias");
             process.exit(1);
           }
         }
@@ -307,22 +277,21 @@ Examples:
           }
           workspaceName = wsName;
         } else {
-          workspace = configManager.getActiveWorkspace();
-          if (!workspace) {
+          workspaceName = configManager.getActiveWorkspaceName();
+          if (!workspaceName) {
             console.error("No active workspace.");
             process.exit(1);
           }
-
-          // Find the name of the active workspace
-          const workspaces = configManager.listWorkspaces();
-          workspaceName = workspaces.find(
-            (name) => configManager.getWorkspace(name) === workspace
-          );
+          workspace = configManager.getWorkspace(workspaceName);
+          if (!workspace) {
+            console.error(`Active workspace '${workspaceName}' not found. It may have been deleted.`);
+            process.exit(1);
+          }
         }
 
         // Clear all aliases by setting to empty object
-        workspace.aliases = {};
-        configManager.addWorkspace(workspaceName!, workspace);
+        workspace!.aliases = {};
+        configManager.addWorkspace(workspaceName!, workspace!);
 
         console.log(`All aliases cleared for workspace '${workspaceName}'.`);
       } catch (err) {

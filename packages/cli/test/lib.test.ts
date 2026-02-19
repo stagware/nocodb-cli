@@ -1,22 +1,18 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
   applyPathParams,
   extractOperations,
   findOperation,
-  formatCsv,
-  formatTable,
   getPathParamNames,
-  handleError,
-  isFetchError,
   isHttpMethod,
   isSwaggerDoc,
   listEndpoints,
-  parseKeyValue,
   slugify,
-  getBaseIdFromArgv,
   validateRequestBody,
   type SwaggerDoc,
-} from "../src/lib.js";
+} from "../src/utils/swagger.js";
+import { formatCsv, formatTable } from "../src/utils/formatting.js";
+import { parseKeyValue, getBaseIdFromArgv } from "../src/utils/parsing.js";
 
 describe("parseKeyValue", () => {
   it("parses key=value pairs", () => {
@@ -189,85 +185,3 @@ describe("formatTable", () => {
   });
 });
 
-describe("isFetchError", () => {
-  it("returns true for Error with numeric statusCode", () => {
-    const err = Object.assign(new Error("Unauthorized"), { statusCode: 401 });
-    expect(isFetchError(err)).toBe(true);
-  });
-
-  it("returns false for plain Error", () => {
-    expect(isFetchError(new Error("plain"))).toBe(false);
-  });
-
-  it("returns false for non-Error objects", () => {
-    expect(isFetchError({ statusCode: 401, message: "Unauthorized" })).toBe(false);
-  });
-
-  it("returns false for Error with non-numeric statusCode", () => {
-    const err = Object.assign(new Error("bad"), { statusCode: "401" });
-    expect(isFetchError(err)).toBe(false);
-  });
-});
-
-describe("handleError", () => {
-  let errorSpy: ReturnType<typeof vi.spyOn>;
-
-  beforeEach(() => {
-    errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    process.exitCode = 0;
-  });
-
-  afterEach(() => {
-    errorSpy.mockRestore();
-    process.exitCode = 0;
-  });
-
-  it("prints message for plain Error", () => {
-    handleError(new Error("something broke"));
-    expect(errorSpy).toHaveBeenCalledWith("something broke");
-    expect(process.exitCode).toBe(1);
-  });
-
-  it("converts non-Error to string", () => {
-    handleError("raw string");
-    expect(errorSpy).toHaveBeenCalledWith("raw string");
-    expect(process.exitCode).toBe(1);
-  });
-
-  it("prints HTTP status and message for fetch errors", () => {
-    const err = Object.assign(new Error("Unauthorized"), { statusCode: 401 });
-    handleError(err);
-    expect(errorSpy).toHaveBeenCalledWith("HTTP 401 — Unauthorized");
-    expect(process.exitCode).toBe(1);
-  });
-
-  it("prints response body object for fetch errors", () => {
-    const err = Object.assign(new Error("Bad Request"), {
-      statusCode: 400,
-      data: { msg: "Field X is required" },
-    });
-    handleError(err);
-    expect(errorSpy).toHaveBeenCalledWith("HTTP 400 — Bad Request");
-    expect(errorSpy).toHaveBeenCalledWith(JSON.stringify({ msg: "Field X is required" }, null, 2));
-  });
-
-  it("prints response body string for fetch errors", () => {
-    const err = Object.assign(new Error("Not Found"), {
-      statusCode: 404,
-      data: "resource not found",
-    });
-    handleError(err);
-    expect(errorSpy).toHaveBeenCalledWith("HTTP 404 — Not Found");
-    expect(errorSpy).toHaveBeenCalledWith("resource not found");
-  });
-
-  it("does not print data when it is null", () => {
-    const err = Object.assign(new Error("Unauthorized"), {
-      statusCode: 401,
-      data: null,
-    });
-    handleError(err);
-    expect(errorSpy).toHaveBeenCalledTimes(1);
-    expect(errorSpy).toHaveBeenCalledWith("HTTP 401 — Unauthorized");
-  });
-});
