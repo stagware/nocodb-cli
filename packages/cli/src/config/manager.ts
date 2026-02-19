@@ -1,11 +1,9 @@
 /**
  * Unified configuration manager for the NocoDB CLI.
  * 
- * This module consolidates the legacy config.ts, settings.ts, and aliases.ts
- * systems into a single, coherent configuration management system. It provides:
+ * This module provides a single, coherent configuration management system:
  * 
  * - Multi-workspace support with workspace-scoped configuration
- * - Automatic migration from legacy configuration files
  * - Clear configuration precedence rules
  * - Alias resolution with namespace support
  * - Configuration validation
@@ -16,12 +14,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
-import Conf from "conf";
 import { ValidationError } from "@stagware/nocodb-sdk";
 import type { UnifiedConfig, WorkspaceConfig, GlobalSettings } from "./types.js";
-import type { Settings } from "../settings.js";
-import type { MultiConfig } from "../aliases.js";
-import type { ConfigData } from "../config.js";
 
 /**
  * Default global settings for HTTP client behavior.
@@ -38,7 +32,6 @@ export const DEFAULT_SETTINGS: GlobalSettings = {
  * 
  * The ConfigManager provides a single interface for managing all CLI configuration,
  * including workspace management, alias resolution, and configuration precedence.
- * It automatically migrates legacy configuration files on first use.
  * 
  * @example
  * ```typescript
@@ -73,16 +66,16 @@ export class ConfigManager {
   /**
    * Creates a new ConfigManager instance.
    * 
-   * The manager will load existing configuration or migrate from legacy files
-   * if no unified configuration exists. The configuration directory can be
-   * customized via the NOCODB_SETTINGS_DIR or NOCO_CONFIG_DIR environment variables.
+   * The manager will load existing configuration or create a new one with
+   * defaults. The configuration directory can be customized via the
+   * NOCODB_SETTINGS_DIR or NOCO_CONFIG_DIR environment variables.
    * 
    * @param configDir - Optional custom configuration directory path
    */
   constructor(configDir?: string) {
     this.configDir = this.resolveConfigDir(configDir);
     this.configPath = path.join(this.configDir, "config.json");
-    this.config = this.loadOrMigrate();
+    this.config = this.load();
   }
 
   /**
@@ -105,22 +98,16 @@ export class ConfigManager {
   }
 
   /**
-   * Loads existing unified configuration or migrates from legacy files.
+   * Loads existing configuration or creates a new one with defaults.
    * 
-   * This method checks for the unified config.json file first. If not found,
-   * it attempts to migrate from legacy configuration files (config.json via Conf,
-   * settings.json, and config.v2.json for aliases).
-   * 
-   * @returns Loaded or migrated unified configuration
+   * @returns Loaded or default unified configuration
    */
-  private loadOrMigrate(): UnifiedConfig {
-    // Try loading unified config
+  private load(): UnifiedConfig {
     if (fs.existsSync(this.configPath)) {
       try {
         const raw = fs.readFileSync(this.configPath, "utf8");
         const parsed = JSON.parse(raw) as UnifiedConfig;
 
-        // Validate version
         if (parsed.version === 2) {
           // Ensure all workspaces have required properties
           for (const name of Object.keys(parsed.workspaces)) {
@@ -131,170 +118,21 @@ export class ConfigManager {
               parsed.workspaces[name].aliases = {};
             }
           }
+          // Ensure settings exist with defaults for any missing keys
+          parsed.settings = { ...DEFAULT_SETTINGS, ...parsed.settings };
           return parsed;
         }
-      } catch (err) {
-        // Fall through to migration if parsing fails
-        console.warn(`Warning: Failed to parse ${this.configPath}, attempting migration`);
+      } catch {
+        console.warn(`Warning: Failed to parse ${this.configPath}, starting with defaults`);
       }
     }
 
-    // Migrate from legacy config files
-    return this.migrateFromLegacy();
-  }
-
-  /**
-   * Migrates configuration from legacy files to unified format.
-   * 
-   * This method consolidates:
-   * - Legacy config.json (Conf-based) -> default workspace or global config
-   * - Legacy settings.json -> global settings
-   * - Legacy config.v2.json (aliases) -> workspaces
-   * 
-   * The migration preserves all existing configuration values and creates
-   * a default workspace if a legacy global config exists.
-   * 
-   * @returns Migrated unified configuration
-   */
-  private migrateFromLegacy(): UnifiedConfig {
-    const legacyConfig = this.loadLegacyConfig();
-    const legacySettings = this.loadLegacySettings();
-    const legacyAliases = this.loadLegacyAliases();
-
-    const unified: UnifiedConfig = {
+    // Return default config
+    return {
       version: 2,
       workspaces: {},
-      settings: legacySettings,
+      settings: { ...DEFAULT_SETTINGS },
     };
-
-    // Migrate workspace configs from aliases (config.v2.json)
-    for (const [name, wsConfig] of Object.entries(legacyAliases)) {
-      unified.workspaces[name] = {
-        baseUrl: wsConfig.baseUrl,
-        headers: wsConfig.headers || {},
-        baseId: wsConfig.baseId,
-        aliases: wsConfig.aliases || {},
-      };
-    }
-
-    // Migrate legacy global config to default workspace if present
-    if (legacyConfig.baseUrl) {
-      // If there's already a 'default' workspace from aliases, merge with it
-      if (unified.workspaces.default) {
-        // Prefer legacy config values if they exist
-        unified.workspaces.default.baseUrl = legacyConfig.baseUrl;
-        if (legacyConfig.headers) {
-          unified.workspaces.default.headers = {
-            ...unified.workspaces.default.headers,
-            ...legacyConfig.headers,
-          };
-        }
-        if (legacyConfig.baseId) {
-          unified.workspaces.default.baseId = legacyConfig.baseId;
-        }
-      } else {
-        // Create new default workspace
-        unified.workspaces.default = {
-          baseUrl: legacyConfig.baseUrl,
-          headers: legacyConfig.headers || {},
-          baseId: legacyConfig.baseId,
-          aliases: {},
-        };
-      }
-      unified.activeWorkspace = "default";
-    } else if (Object.keys(unified.workspaces).length > 0) {
-      // Set first workspace as active if no default exists
-      unified.activeWorkspace = Object.keys(unified.workspaces)[0];
-    }
-
-    // Save migrated config
-    this.save(unified);
-
-    return unified;
-  }
-
-  /**
-   * Loads legacy Conf-based configuration (config.json).
-   * 
-   * This reads the old config.json file that was managed by the Conf library.
-   * It contains global baseUrl, baseId, and headers.
-   * 
-   * @returns Legacy configuration data or empty object if not found
-   */
-  private loadLegacyConfig(): ConfigData {
-    try {
-      // Conf stores data in a specific location
-      const conf = new Conf<ConfigData>({
-        projectName: "nocodb",
-        cwd: this.configDir
-      });
-
-      return {
-        baseUrl: conf.get("baseUrl"),
-        baseId: conf.get("baseId"),
-        headers: conf.get("headers"),
-      };
-    } catch {
-      return {};
-    }
-  }
-
-  /**
-   * Loads legacy settings.json file.
-   * 
-   * This reads the old settings.json file that contained timeout and retry
-   * configuration. Returns default settings if file doesn't exist.
-   * 
-   * @returns Legacy settings or default settings
-   */
-  private loadLegacySettings(): GlobalSettings {
-    try {
-      const settingsPath = path.join(this.configDir, "settings.json");
-      const raw = fs.readFileSync(settingsPath, "utf8");
-      const parsed = JSON.parse(raw) as Settings;
-
-      if (parsed && typeof parsed === "object") {
-        return {
-          timeoutMs: parsed.timeoutMs ?? DEFAULT_SETTINGS.timeoutMs,
-          retryCount: parsed.retryCount ?? DEFAULT_SETTINGS.retryCount,
-          retryDelay: parsed.retryDelay ?? DEFAULT_SETTINGS.retryDelay,
-          retryStatusCodes: parsed.retryStatusCodes ?? DEFAULT_SETTINGS.retryStatusCodes,
-        };
-      }
-    } catch {
-      // File missing or corrupt — use defaults
-    }
-
-    return { ...DEFAULT_SETTINGS };
-  }
-
-  /**
-   * Loads legacy config.v2.json file (workspace aliases).
-   * 
-   * This reads the old config.v2.json file that contained workspace-scoped
-   * configurations and aliases. Returns empty object if file doesn't exist.
-   * 
-   * @returns Legacy workspace configurations or empty object
-   */
-  private loadLegacyAliases(): MultiConfig {
-    try {
-      const aliasesPath = path.join(this.configDir, "config.v2.json");
-      const raw = fs.readFileSync(aliasesPath, "utf8");
-      const parsed = JSON.parse(raw) as MultiConfig;
-
-      if (parsed && typeof parsed === "object") {
-        // Normalize entries to ensure required objects exist
-        for (const name of Object.keys(parsed)) {
-          if (!parsed[name].headers) parsed[name].headers = {};
-          if (!parsed[name].aliases) parsed[name].aliases = {};
-        }
-        return parsed;
-      }
-    } catch {
-      // File missing or corrupt — use empty
-    }
-
-    return {};
   }
 
   /**
@@ -304,7 +142,7 @@ export class ConfigManager {
    */
   getActiveWorkspace(): WorkspaceConfig | undefined {
     if (!this.config.activeWorkspace) return undefined;
-    return this.config.workspaces[this.config.activeWorkspace];
+    return this.getWorkspace(this.config.activeWorkspace);
   }
 
   /**
@@ -325,7 +163,9 @@ export class ConfigManager {
    * Gets the name of the active workspace.
    */
   getActiveWorkspaceName(): string | undefined {
-    return this.config.activeWorkspace;
+    const name = this.config.activeWorkspace;
+    if (name && !this.config.workspaces[name]) return undefined;
+    return name;
   }
 
   /**
@@ -385,7 +225,20 @@ export class ConfigManager {
    * @returns Workspace configuration or undefined if not found
    */
   getWorkspace(name: string): WorkspaceConfig | undefined {
-    return this.config.workspaces[name];
+    const ws = this.config.workspaces[name];
+    if (!ws) return undefined;
+    return this.copyWorkspace(ws);
+  }
+
+  /**
+   * Creates a shallow defensive copy of a workspace config.
+   */
+  private copyWorkspace(ws: WorkspaceConfig): WorkspaceConfig {
+    return {
+      ...ws,
+      headers: { ...ws.headers },
+      aliases: { ...ws.aliases },
+    };
   }
 
   /**
@@ -399,21 +252,6 @@ export class ConfigManager {
    * 
    * @param input - Alias or UUID to resolve
    * @returns Object containing resolved ID and optional workspace context
-   * 
-   * @example
-   * ```typescript
-   * // Explicit namespace
-   * resolveAlias('production.users')  // -> { id: 't123...', workspace: {...} }
-   * 
-   * // Active workspace alias
-   * resolveAlias('users')  // -> { id: 't123...', workspace: {...} }
-   * 
-   * // Workspace-level alias
-   * resolveAlias('production')  // -> { id: 'p456...', workspace: {...} }
-   * 
-   * // Pass-through UUID
-   * resolveAlias('t1234567890abcdef')  // -> { id: 't1234567890abcdef' }
-   * ```
    */
   resolveAlias(input: string): { id: string; workspace?: WorkspaceConfig } {
     // 1. Check for explicit namespace (workspace.alias)
@@ -423,7 +261,7 @@ export class ConfigManager {
       const alias = input.slice(dotIndex + 1);
       const ws = this.config.workspaces[wsName];
       if (ws?.aliases[alias]) {
-        return { id: ws.aliases[alias], workspace: ws };
+        return { id: ws.aliases[alias], workspace: this.copyWorkspace(ws) };
       }
     }
 
@@ -436,7 +274,7 @@ export class ConfigManager {
     // 3. Check for workspace-level alias (workspace name -> baseId)
     const ws = this.config.workspaces[input];
     if (ws?.baseId) {
-      return { id: ws.baseId, workspace: ws };
+      return { id: ws.baseId, workspace: this.copyWorkspace(ws) };
     }
 
     // 4. Pass-through (assume it's already a UUID)
@@ -495,17 +333,6 @@ export class ConfigManager {
    * 
    * @param cliFlags - Optional CLI flag overrides for settings
    * @returns Object containing workspace config and effective settings
-   * 
-   * @example
-   * ```typescript
-   * // Get effective config with CLI flag override
-   * const { workspace, settings } = configManager.getEffectiveConfig({
-   *   timeoutMs: 60000  // Override timeout to 60 seconds
-   * });
-   * 
-   * console.log(settings.timeoutMs);  // 60000 (from CLI flag)
-   * console.log(settings.retryCount);  // 3 (from global settings or default)
-   * ```
    */
   getEffectiveConfig(cliFlags: Partial<GlobalSettings> = {}): {
     workspace?: WorkspaceConfig;
@@ -650,23 +477,23 @@ export class ConfigManager {
    */
   private validateGlobalSettings(settings: GlobalSettings): void {
     // Validate timeoutMs
-    if (settings.timeoutMs <= 0) {
+    if (!Number.isFinite(settings.timeoutMs) || settings.timeoutMs <= 0) {
       throw new ValidationError(
-        `Invalid timeoutMs: ${settings.timeoutMs}. Must be positive.`
+        `Invalid timeoutMs: ${settings.timeoutMs}. Must be a positive finite number.`
       );
     }
 
     // Validate retryCount
-    if (settings.retryCount < 0) {
+    if (!Number.isFinite(settings.retryCount) || settings.retryCount < 0) {
       throw new ValidationError(
-        `Invalid retryCount: ${settings.retryCount}. Must be non-negative.`
+        `Invalid retryCount: ${settings.retryCount}. Must be a non-negative finite number.`
       );
     }
 
     // Validate retryDelay
-    if (settings.retryDelay < 0) {
+    if (!Number.isFinite(settings.retryDelay) || settings.retryDelay < 0) {
       throw new ValidationError(
-        `Invalid retryDelay: ${settings.retryDelay}. Must be non-negative.`
+        `Invalid retryDelay: ${settings.retryDelay}. Must be a non-negative finite number.`
       );
     }
 
@@ -728,19 +555,27 @@ export class ConfigManager {
       let renamed = false;
       for (let attempt = 0; attempt < 3 && !renamed; attempt++) {
         try {
-          fs.unlinkSync(this.configPath);
+          // Only unlink if the target still exists (may have been
+          // removed by a previous attempt that failed on rename).
+          if (fs.existsSync(this.configPath)) {
+            fs.unlinkSync(this.configPath);
+          }
           fs.renameSync(tempPath, this.configPath);
           renamed = true;
         } catch {
-          // Brief pause before retry to let file locks release
+          // Synchronous sleep before retry to let file locks release.
+          // Atomics.wait is the most efficient synchronous delay in
+          // Node.js — it blocks without burning CPU (unlike a spin
+          // loop) and without spawning a child process.
           if (attempt < 2) {
-            const start = Date.now();
-            while (Date.now() - start < 50) { /* spin wait */ }
+            Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 50);
           }
         }
       }
 
       if (!renamed) {
+        // Clean up orphaned temp file
+        try { fs.unlinkSync(tempPath); } catch { /* ignore */ }
         // Last resort: restore from backup and throw
         if (fs.existsSync(backupPath) && !fs.existsSync(this.configPath)) {
           fs.copyFileSync(backupPath, this.configPath);

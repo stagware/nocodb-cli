@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import { Command } from "commander";
-import { listEndpoints } from "../lib.js";
+import { listEndpoints } from "../utils/swagger.js";
 import { addOutputOptions } from "./helpers.js";
 import { formatError, getExitCode } from "../utils/error-handling.js";
 import type { Container } from "../container.js";

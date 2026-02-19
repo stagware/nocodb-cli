@@ -39,7 +39,7 @@
   ],
   "scripts": {
     "build": "tsup src/index.ts --format esm --dts",
-    "lint": "echo 'no lint yet'",
+    "lint": "eslint src/",
     "test": "vitest run",
     "prepublishOnly": "npm run build && npm test"
   },

@@ -139,9 +139,6 @@ export function listEndpoints(doc: SwaggerDoc, tag?: string): string[] {
 export function validateRequestBody(op: Operation, doc: SwaggerDoc, body: unknown): void {
   const { schema, required } = getBodySchema(op);
   if (!schema) {
-    if (body !== undefined) {
-      return;
-    }
     return;
   }
 

@@ -193,16 +193,8 @@ export function getBaseIdFromArgv(argv: string[]): string | undefined {
   return undefined;
 }
 
-/**
- * NocoDB entity ID prefixes and their expected patterns.
- * IDs are typically a prefix letter followed by alphanumeric characters.
- */
-const ID_PATTERNS: Record<string, RegExp> = {
-  table: /^[a-z][a-z0-9]{15,}$/i,
-  base: /^[a-z][a-z0-9]{15,}$/i,
-  view: /^[a-z][a-z0-9]{15,}$/i,
-  column: /^[a-z][a-z0-9]{15,}$/i,
-};
+
+
 
 /**
  * Validates that a string looks like a valid NocoDB entity ID or alias.

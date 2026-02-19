@@ -465,6 +465,7 @@ function createDefaultMockConfigManager(): ConfigManager {
   // In real tests, users should provide their own mock with specific behavior
   return {
     getActiveWorkspace: () => defaultWorkspace,
+    getActiveWorkspaceName: () => 'test',
     setActiveWorkspace: () => {},
     addWorkspace: () => {},
     removeWorkspace: () => false,
@@ -473,7 +474,6 @@ function createDefaultMockConfigManager(): ConfigManager {
     resolveAlias: (input: string) => ({ id: input, workspace: defaultWorkspace }),
     setAlias: () => {},
     removeAlias: () => false,
-    listAliases: () => ({}),
     getEffectiveConfig: () => ({ workspace: defaultWorkspace, settings: defaultSettings }),
     getSettings: () => defaultSettings,
     updateSettings: () => {},

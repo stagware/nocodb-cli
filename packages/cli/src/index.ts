@@ -2,18 +2,8 @@ import { Command } from "commander";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { MetaApi, NocoClient } from "@stagware/nocodb-sdk";
-import {
-  getBaseIdFromArgv as parseBaseIdArgv,
-  handleError,
-  isHttpMethod,
-  isSwaggerDoc,
-  parseKeyValue,
-  type SwaggerDoc,
-} from "./lib.js";
-import { createConfig, deleteHeader, getHeaders, setHeader } from "./config.js";
-import { loadSettings, saveSettings, resetSettings, getSettingsPath, DEFAULT_SETTINGS, type Settings } from "./settings.js";
-import { loadMultiConfig, resolveNamespacedAlias, type MultiConfig, type WorkspaceConfig } from "./aliases.js";
+import { getBaseIdFromArgv } from "./utils/parsing.js";
+import { formatError, getExitCode } from "./utils/error-handling.js";
 import { registerRowsCommands } from "./commands/rows.js";
 import { registerMetaCommands } from "./commands/meta.js";
 import { registerLinksCommands } from "./commands/links.js";
@@ -39,103 +29,13 @@ import { registerDuplicateCommands } from "./commands/duplicate.js";
 import { registerVisibilityRulesCommands } from "./commands/visibility-rules.js";
 import { registerAppInfoCommand } from "./commands/app-info.js";
 import { registerCloudWorkspaceCommands } from "./commands/cloud-workspace.js";
-import { ConfigManager } from "./config/manager.js";
+import { ConfigManager, DEFAULT_SETTINGS } from "./config/manager.js";
 import { createContainer, type Container } from "./container.js";
-
-const config = createConfig();
-const settings = loadSettings();
-let multiConfig = loadMultiConfig();
+import type { GlobalSettings } from "./config/types.js";
 
 // ConfigManager and container - initialized in initializeConfig()
 let configManager: ConfigManager;
 let container: Container;
-
-function getActiveWorkspaceName(): string | undefined {
-  return config.get("activeWorkspace") as string | undefined;
-}
-
-function getActiveWorkspace(): WorkspaceConfig | undefined {
-  const name = getActiveWorkspaceName();
-  return name ? multiConfig[name] : undefined;
-}
-
-function getBaseUrl(): string {
-  const ws = getActiveWorkspace();
-  if (ws?.baseUrl) return ws.baseUrl;
-
-  const baseUrl = config.get("baseUrl");
-  if (!baseUrl) {
-    throw new Error(
-      "Base URL is not set. Run either: nocodb workspace add <name> <url> <token> or: nocodb config set baseUrl <url>",
-    );
-  }
-  return baseUrl;
-}
-
-function getBaseId(fallback?: string): string {
-  const ws = getActiveWorkspace();
-  const baseId = fallback ?? ws?.baseId ?? config.get("baseId");
-
-  if (!baseId) {
-    throw new Error("Base id is not set. Use --base <id> or: nocodb config set baseId <id>");
-  }
-  return resolveNamespacedAlias(baseId, multiConfig, getActiveWorkspaceName()).id;
-}
-
-function getHeadersConfig(): Record<string, string> {
-  const ws = getActiveWorkspace();
-  const wsHeaders = ws?.headers ?? {};
-  return { ...getHeaders(config), ...wsHeaders };
-}
-
-async function readJsonFile(path: string): Promise<unknown> {
-  const raw = await fs.promises.readFile(path, "utf8");
-  return JSON.parse(raw);
-}
-
-function getCacheDir(): string {
-  const configPath = config.path;
-  const dir = path.dirname(configPath);
-  return path.join(dir, "cache");
-}
-
-async function writeJsonFile(filePath: string, data: unknown, pretty?: boolean): Promise<void> {
-  await fs.promises.mkdir(path.dirname(filePath), { recursive: true });
-  const raw = JSON.stringify(data, null, pretty ? 2 : 0);
-  await fs.promises.writeFile(filePath, raw, "utf8");
-}
-
-async function readJsonInput(data?: string, dataFile?: string): Promise<unknown> {
-  if (dataFile) {
-    return readJsonFile(dataFile);
-  }
-  if (data) {
-    return JSON.parse(data);
-  }
-  throw new Error("Provide --data or --data-file");
-}
-
-
-function clientOptionsFromSettings() {
-  const opts = program.opts();
-  const timeoutMs = opts.timeout ? Number(opts.timeout) : settings.timeoutMs;
-  const retryCount = opts.retries != null ? Number(opts.retries) : settings.retryCount;
-  return {
-    timeoutMs,
-    retry: {
-      retry: retryCount === 0 ? (false as const) : retryCount,
-      retryDelay: settings.retryDelay,
-      retryStatusCodes: settings.retryStatusCodes,
-    },
-  };
-}
-
-function createMeta(): MetaApi {
-  const baseUrl = getBaseUrl();
-  const headers = getHeadersConfig();
-  const client = new NocoClient({ baseUrl, headers, ...clientOptionsFromSettings() });
-  return new MetaApi(client);
-}
 
 const program = new Command();
 program
@@ -218,26 +118,26 @@ Examples:
     .argument("value", "Configuration value")
     .action((key: string, value: string) => {
       initializeConfig();
-      const configManager = container.get<ConfigManager>("configManager");
+      const cm = container.get<ConfigManager>("configManager");
 
-      const activeWorkspaceName = configManager.getActiveWorkspaceName() || "default";
+      const activeWorkspaceName = cm.getActiveWorkspaceName() || "default";
 
       if (key === "baseUrl") {
         // Get or create workspace
-        let ws = configManager.getWorkspace(activeWorkspaceName);
+        let ws = cm.getWorkspace(activeWorkspaceName);
         if (!ws) {
           ws = {
             baseUrl: value,
             headers: {},
             aliases: {},
           };
-          configManager.addWorkspace(activeWorkspaceName, ws);
+          cm.addWorkspace(activeWorkspaceName, ws);
           if (activeWorkspaceName === "default") {
-            configManager.setActiveWorkspace("default");
+            cm.setActiveWorkspace("default");
           }
         } else {
           ws.baseUrl = value;
-          configManager.addWorkspace(activeWorkspaceName, ws);
+          cm.addWorkspace(activeWorkspaceName, ws);
         }
 
         if (process.env.NOCO_QUIET !== "1") {
@@ -247,14 +147,14 @@ Examples:
       }
       if (key === "baseId") {
         // Get or create workspace
-        let ws = configManager.getWorkspace(activeWorkspaceName);
+        let ws = cm.getWorkspace(activeWorkspaceName);
         if (!ws) {
           console.error(`No workspace '${activeWorkspaceName}' configured. Set baseUrl first: nocodb config set baseUrl <url>`);
           process.exitCode = 1;
           return;
         } else {
           ws.baseId = value;
-          configManager.addWorkspace(activeWorkspaceName, ws);
+          cm.addWorkspace(activeWorkspaceName, ws);
         }
 
         if (process.env.NOCO_QUIET !== "1") {
@@ -270,12 +170,11 @@ Examples:
     .command("get")
     .argument("key", "Configuration key")
     .action((key: string) => {
-      // Initialize config and container if not already done
       initializeConfig();
-      const configManager = container.get<ConfigManager>("configManager");
+      const cm = container.get<ConfigManager>("configManager");
 
       if (key === "baseUrl") {
-        const ws = configManager.getActiveWorkspace();
+        const ws = cm.getActiveWorkspace();
         const baseUrl = ws?.baseUrl;
         if (!baseUrl) {
           console.error("baseUrl is not set");
@@ -288,7 +187,7 @@ Examples:
         return;
       }
       if (key === "baseId") {
-        const ws = configManager.getActiveWorkspace();
+        const ws = cm.getActiveWorkspace();
         const baseId = ws?.baseId;
         if (!baseId) {
           console.error("baseId is not set");
@@ -308,11 +207,10 @@ Examples:
     .command("show")
     .description("Show current configuration")
     .action(() => {
-      // Initialize config and container if not already done
       initializeConfig();
-      const configManager = container.get<ConfigManager>("configManager");
+      const cm = container.get<ConfigManager>("configManager");
 
-      const ws = configManager.getActiveWorkspace();
+      const ws = cm.getActiveWorkspace();
       const baseUrl = ws?.baseUrl ?? null;
       const baseId = ws?.baseId ?? null;
       const headers = ws?.headers ?? {};
@@ -340,12 +238,11 @@ Examples:
     .argument("name", "Header name")
     .argument("value", "Header value")
     .action((name: string, value: string) => {
-      // Initialize config and container if not already done
       initializeConfig();
-      const configManager = container.get<ConfigManager>("configManager");
+      const cm = container.get<ConfigManager>("configManager");
 
-      const activeWorkspaceName = configManager.getActiveWorkspaceName() || "default";
-      let ws = configManager.getWorkspace(activeWorkspaceName);
+      const activeWorkspaceName = cm.getActiveWorkspaceName() || "default";
+      let ws = cm.getWorkspace(activeWorkspaceName);
       if (!ws) {
         console.error(`No workspace '${activeWorkspaceName}' configured. Set baseUrl first: nocodb config set baseUrl <url>`);
         process.exitCode = 1;
@@ -353,7 +250,7 @@ Examples:
       }
 
       ws.headers[name] = value;
-      configManager.addWorkspace(activeWorkspaceName, ws);
+      cm.addWorkspace(activeWorkspaceName, ws);
 
       if (process.env.NOCO_QUIET !== "1") {
         console.log(`header '${name}' set for workspace '${activeWorkspaceName}'`);
@@ -364,15 +261,14 @@ Examples:
     .command("delete")
     .argument("name", "Header name")
     .action((name: string) => {
-      // Initialize config and container if not already done
       initializeConfig();
-      const configManager = container.get<ConfigManager>("configManager");
+      const cm = container.get<ConfigManager>("configManager");
 
-      const activeWorkspaceName = configManager.getActiveWorkspaceName() || "default";
-      const ws = configManager.getWorkspace(activeWorkspaceName);
+      const activeWorkspaceName = cm.getActiveWorkspaceName() || "default";
+      const ws = cm.getWorkspace(activeWorkspaceName);
       if (ws && ws.headers[name]) {
         delete ws.headers[name];
-        configManager.addWorkspace(activeWorkspaceName, ws);
+        cm.addWorkspace(activeWorkspaceName, ws);
       }
 
       if (process.env.NOCO_QUIET !== "1") {
@@ -383,11 +279,10 @@ Examples:
   headerCmd
     .command("list")
     .action(() => {
-      // Initialize config and container if not already done
       initializeConfig();
-      const configManager = container.get<ConfigManager>("configManager");
+      const cm = container.get<ConfigManager>("configManager");
 
-      const ws = configManager.getActiveWorkspace();
+      const ws = cm.getActiveWorkspace();
       const headers = ws?.headers || {};
 
       if (process.env.NOCO_QUIET !== "1") {
@@ -397,7 +292,7 @@ Examples:
 }
 
 /**
- * Register settings management commands
+ * Register settings management commands (backed by ConfigManager)
  */
 function registerSettingsCommands(): void {
   const settingsCmd = program.command("settings").description("Manage CLI settings (timeout, retries)")
@@ -415,6 +310,9 @@ Examples:
     .command("show")
     .description("Show current effective settings")
     .action(() => {
+      initializeConfig();
+      const cm = container.get<ConfigManager>("configManager");
+      const settings = cm.getSettings();
       if (process.env.NOCO_QUIET !== "1") {
         console.log(JSON.stringify(settings, null, 2));
       }
@@ -422,10 +320,12 @@ Examples:
 
   settingsCmd
     .command("path")
-    .description("Print the settings file path")
+    .description("Print the configuration file path")
     .action(() => {
+      initializeConfig();
+      const cm = container.get<ConfigManager>("configManager");
       if (process.env.NOCO_QUIET !== "1") {
-        console.log(getSettingsPath());
+        console.log(cm.getConfigPath());
       }
     });
 
@@ -434,27 +334,38 @@ Examples:
     .argument("key", "Setting key (timeoutMs, retryCount, retryDelay, retryStatusCodes)")
     .argument("value", "Setting value")
     .action((key: string, value: string) => {
-      const validKeys: (keyof Settings)[] = ["timeoutMs", "retryCount", "retryDelay", "retryStatusCodes"];
-      if (!validKeys.includes(key as keyof Settings)) {
+      initializeConfig();
+      const cm = container.get<ConfigManager>("configManager");
+
+      const validKeys: (keyof GlobalSettings)[] = ["timeoutMs", "retryCount", "retryDelay", "retryStatusCodes"];
+      if (!validKeys.includes(key as keyof GlobalSettings)) {
         console.error(`Unsupported key '${key}'. Supported keys: ${validKeys.join(", ")}`);
         process.exitCode = 1;
         return;
       }
-      const current = loadSettings();
+
       if (key === "retryStatusCodes") {
         try {
-          current.retryStatusCodes = JSON.parse(value);
+          const parsed = JSON.parse(value);
+          cm.updateSettings({ retryStatusCodes: parsed });
         } catch {
           console.error("Value for retryStatusCodes must be a JSON array, e.g. [429,500,502]");
           process.exitCode = 1;
           return;
         }
       } else {
-        (current as any)[key] = Number(value);
+        const num = Number(value);
+        if (!Number.isFinite(num)) {
+          console.error(`Value for ${key} must be a finite number`);
+          process.exitCode = 1;
+          return;
+        }
+        cm.updateSettings({ [key]: num });
       }
-      saveSettings(current);
+
       if (process.env.NOCO_QUIET !== "1") {
-        console.log(`${key} set to ${JSON.stringify((current as any)[key])}`);
+        const updated = cm.getSettings();
+        console.log(`${key} set to ${JSON.stringify((updated as unknown as Record<string, unknown>)[key])}`);
       }
     });
 
@@ -462,14 +373,14 @@ Examples:
     .command("reset")
     .description("Reset settings to defaults")
     .action(() => {
-      resetSettings();
+      initializeConfig();
+      const cm = container.get<ConfigManager>("configManager");
+      cm.updateSettings({ ...DEFAULT_SETTINGS });
       if (process.env.NOCO_QUIET !== "1") {
         console.log("settings reset to defaults");
       }
     });
 }
-
-const apiCmd = createApiCommand(program);
 
 /**
  * Bootstrap the CLI application
@@ -480,18 +391,27 @@ async function bootstrap(): Promise<void> {
     // Initialize configuration and container
     initializeConfig();
 
-    // Register all commands
+    // Register all commands (including the api parent command)
+    const apiCmd = createApiCommand(program);
     registerCommands();
 
     // Handle dynamic API commands if 'api' command is used
     if (process.argv.includes("api")) {
-      const baseId = getBaseId(getBaseIdFromArgv());
-      await registerDynamicApiCommands(apiCmd, baseId, container);
+      const baseIdArg = getBaseIdFromArgv(process.argv);
+      const cm = container.get<ConfigManager>("configManager");
+      const ws = cm.getActiveWorkspace();
+      const baseId = baseIdArg ?? ws?.baseId;
+      if (!baseId) {
+        throw new Error("Base id is not set. Use --base <id> or: nocodb config set baseId <id>");
+      }
+      const { id: resolvedBaseId } = cm.resolveAlias(baseId);
+      await registerDynamicApiCommands(apiCmd, resolvedBaseId, container);
     }
 
     await program.parseAsync(process.argv);
   } catch (err) {
-    handleError(err);
+    console.error(formatError(err, program.opts().verbose));
+    process.exitCode = getExitCode(err);
   }
 }
 
@@ -520,32 +440,3 @@ if ((import.meta as any).main || shouldAutoRun()) {
 }
 
 export { bootstrap };
-
-function getBaseIdFromArgv(): string | undefined {
-  return parseBaseIdArgv(process.argv);
-}
-
-async function loadSwagger(baseId: string, useCache: boolean): Promise<SwaggerDoc> {
-  const cacheFile = path.join(getCacheDir(), `swagger-${baseId}.json`);
-  if (useCache) {
-    try {
-      const cached = (await readJsonFile(cacheFile)) as SwaggerDoc;
-      if (isSwaggerDoc(cached)) {
-        return cached;
-      }
-    } catch {
-      // ignore
-    }
-  }
-  const meta = createMeta();
-  const doc = (await meta.getBaseSwagger(baseId)) as SwaggerDoc;
-  await writeJsonFile(cacheFile, doc, true);
-  return doc;
-}
-
-async function ensureSwaggerCache(baseId: string): Promise<void> {
-  const cacheFile = path.join(getCacheDir(), `swagger-${baseId}.json`);
-  if (!fs.existsSync(cacheFile)) {
-    await loadSwagger(baseId, true);
-  }
-}
