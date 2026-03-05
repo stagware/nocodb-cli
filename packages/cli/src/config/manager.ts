@@ -547,12 +547,24 @@ export class ConfigManager {
     if (fs.existsSync(this.configPath)) {
       try {
         fs.copyFileSync(this.configPath, backupPath);
-      } catch {
-        // Best-effort backup
+        // Verify backup was created successfully
+        if (!fs.existsSync(backupPath)) {
+          throw new Error('Backup file was not created');
+        }
+        const backupStats = fs.statSync(backupPath);
+        if (backupStats.size === 0) {
+          throw new Error('Backup file is empty');
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'unknown error';
+        throw new Error(`Failed to create backup before save: ${message}`);
       }
 
-      // Retry loop for the unlink+rename to handle transient locks on Windows
+      // Retry loop for the unlink+rename to handle transient locks on Windows.
+      // Allocate SharedArrayBuffer outside the loop so Atomics.wait works correctly.
+      const sleepBuf = new Int32Array(new SharedArrayBuffer(4));
       let renamed = false;
+      let lastError: Error | undefined;
       for (let attempt = 0; attempt < 3 && !renamed; attempt++) {
         try {
           // Only unlink if the target still exists (may have been
@@ -562,13 +574,14 @@ export class ConfigManager {
           }
           fs.renameSync(tempPath, this.configPath);
           renamed = true;
-        } catch {
+        } catch (err) {
+          lastError = err instanceof Error ? err : new Error(String(err));
           // Synchronous sleep before retry to let file locks release.
           // Atomics.wait is the most efficient synchronous delay in
           // Node.js — it blocks without burning CPU (unlike a spin
           // loop) and without spawning a child process.
           if (attempt < 2) {
-            Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 50);
+            Atomics.wait(sleepBuf, 0, 0, 50);
           }
         }
       }
@@ -577,10 +590,21 @@ export class ConfigManager {
         // Clean up orphaned temp file
         try { fs.unlinkSync(tempPath); } catch { /* ignore */ }
         // Last resort: restore from backup and throw
-        if (fs.existsSync(backupPath) && !fs.existsSync(this.configPath)) {
-          fs.copyFileSync(backupPath, this.configPath);
+        try {
+          if (fs.existsSync(backupPath) && !fs.existsSync(this.configPath)) {
+            fs.copyFileSync(backupPath, this.configPath);
+          }
+        } catch (restoreErr) {
+          const restoreMsg = restoreErr instanceof Error ? restoreErr.message : 'unknown error';
+          throw new Error(
+            `Failed to save config and restore backup failed: ${restoreMsg}. ` +
+            `Original error: ${lastError?.message || 'unknown'}`
+          );
         }
-        throw new Error(`Failed to save config to ${this.configPath} after retries`);
+        throw new Error(
+          `Failed to save config to ${this.configPath} after 3 retries. ` +
+          `Last error: ${lastError?.message || 'unknown'}`
+        );
       }
 
       // Clean up backup on success
